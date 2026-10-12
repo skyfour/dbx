@@ -13,7 +13,7 @@ codex plugin marketplace add /解压目录的绝对路径
 codex plugin add dbx@dbx-local
 ```
 
-按 Codex 提示启用插件；已有会话可能需要重新建立 MCP 连接才会加载工具。点击 Codex 左侧的 DBX 图标，入口会使用 Codex 的标准 `ui/open-link` 接口打开完整工作台（具体浏览器由宿主决定）。使用顶层浏览器页面保留现有登录 Cookie 和下载行为。入口由 `dbx_codex_open` 的 MCP App 全局入口注册，密码尚未设置时也可使用。也可以让 Codex 调用此工具；返回的网址仍可在浏览器面板打开。首次使用设置工作台密码、完成原有安全迁移，再添加数据库连接并设置 MCP 权限。
+按 Codex 提示启用插件；已有会话可能需要重新建立 MCP 连接才会加载工具。让 Codex 打开 DBX，调用 `dbx_codex_open`，将返回网址打开到 Codex 浏览器面板。首次使用设置工作台密码、完成原有安全迁移，再添加数据库连接并设置 MCP 权限。
 
 `dbx_codex_open_table` 打开表；`dbx_codex_execute_and_show` 通过现有 MCP 批量执行器执行 SQL，并显示同一次执行的原始结果。打开链接不会重跑 SQL。链接五分钟后或服务重启后失效，不能为了恢复写入结果而再次执行写入。
 

@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { DatabaseSync } from 'node:sqlite';
-import { runInNewContext } from 'node:vm';
 
 const args = process.argv.slice(2);
 const option = (name) => args[args.indexOf(name) + 1];
@@ -74,35 +73,6 @@ try {
   assert.equal(structured(await current.call('dbx_codex_status')).database_ready, false);
   const initialTools = await current.request('tools/list');
   assert.deepEqual(initialTools.tools.map((tool) => tool.name).sort(), ['dbx_codex_open', 'dbx_codex_status', 'dbx_codex_stop']);
-  const entry = initialTools.tools.find(tool => tool.name === 'dbx_codex_open');
-  assert.equal(entry._meta['openai/ui'].entrypoints[0].type, 'global');
-  assert.equal(entry.icons[0].mimeType, 'image/svg+xml');
-  const resource = await current.request('resources/read', { uri: entry._meta.ui.resourceUri });
-  const app = resource.contents[0];
-  assert.equal(app.mimeType, 'text/html;profile=mcp-app');
-  assert(!app.text.includes('<iframe'), 'Login requires a top-level browser page');
-  const sent = [], elements = { open: {}, status: {} };
-  const parent = { postMessage: message => sent.push(message) };
-  let receive;
-  runInNewContext(app.text.match(/<script>([\s\S]*?)<\/script>/)[1], {
-    parent, document: { getElementById: id => elements[id] },
-    addEventListener: (_, handler) => { receive = handler; },
-  }, { timeout: 1000 });
-  assert.equal(sent[0].method, 'ui/initialize');
-  receive({ source: {}, data: { jsonrpc: '2.0', id: 'dbx-init', result: {} } });
-  assert.equal(sent.length, 1, 'Ignore messages from foreign frames');
-  receive({ source: parent, data: { jsonrpc: '2.0', id: 'dbx-init', result: {} } });
-  assert.equal(sent[1].method, 'ui/notifications/initialized');
-  assert.equal(sent[2].method, 'ui/open-link');
-  assert.equal(sent[2].params.url, base);
-  receive({ source: parent, data: { jsonrpc: '2.0', id: 'dbx-open', error: { code: -1 } } });
-  assert.match(elements.status.textContent, /retry/);
-  elements.open.onclick();
-  assert.equal(sent[3].method, 'ui/open-link');
-  receive({ source: parent, data: { jsonrpc: '2.0', id: 'dbx-open', result: {} } });
-  assert.match(elements.status.textContent, /keeps the service running/);
-  receive({ source: parent, data: { jsonrpc: '2.0', id: 99, method: 'ui/resource-teardown' } });
-  assert.equal(sent[4].id, 99);
   const html = await (await fetch(base)).text();
   assert.match(html, /<html/);
   const asset = html.match(/(?:src|href)="([^" ]+\.js)"/);

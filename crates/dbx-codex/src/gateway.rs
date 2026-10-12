@@ -124,32 +124,15 @@ struct StopArgs {
     confirm_interrupt: bool,
 }
 
-const WORKBENCH_URI: &str = "ui://dbx/workbench.html";
-const WORKBENCH_MIME: &str = "text/html;profile=mcp-app";
-
-fn workbench_resource() -> Resource {
-    Resource::new(WORKBENCH_URI, "DBX").with_mime_type(WORKBENCH_MIME)
-}
-
 fn local_tools() -> Vec<Tool> {
     let schema: JsonObject =
         serde_json::from_value(json!({"type":"object","properties":{},"additionalProperties":false}))
             .expect("static schema");
     let mut tools: Vec<_> = [
-        ("dbx_codex_open", "Open the full local DBX workbench from the Codex sidebar. Works before first setup; returns a URL without credentials."),
+        ("dbx_codex_open", "Open the full local DBX workbench in the Codex browser panel. Works before first setup; returns a URL without credentials."),
         ("dbx_codex_status", "Check the local workbench version and whether database MCP is ready."),
     ].into_iter().map(|(name, description)| Tool::new(name, description, schema.clone())
         .annotate(ToolAnnotations::new().read_only(true).destructive(false).idempotent(true).open_world(false))).collect();
-    let open = &mut tools[0];
-    open.title = Some("DBX".into());
-    open.meta = Some(
-        serde_json::from_value::<MetaObject>(json!({
-            "ui":{"resourceUri":WORKBENCH_URI},
-            "openai/ui":{"entrypoints":[{"type":"global"}]}
-        }))
-        .expect("static metadata"),
-    );
-    open.icons = Some(vec![Icon::new("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS13aWR0aD0iMS41Ij48ZWxsaXBzZSBjeD0iMTAiIGN5PSI0IiByeD0iNiIgcnk9IjIuNSIvPjxwYXRoIGQ9Ik00IDR2MTJjMCAzLjMgMTIgMy4zIDEyIDBWNE00IDEwYzAgMy4zIDEyIDMuMyAxMiAwIi8+PC9zdmc+").with_mime_type("image/svg+xml").with_sizes(vec!["any".into()])]);
     tools.push(Tool::new("dbx_codex_stop", "Stop the shared local DBX workbench. May interrupt other clients, writes, imports or backups. Set confirm_interrupt=true only after the user explicitly authorizes interrupting all work. Persistent data is retained.",
         serde_json::from_value::<JsonObject>(json!({"type":"object","properties":{"confirm_interrupt":{"type":"boolean","default":false}},"additionalProperties":false})).expect("static schema"))
         .annotate(ToolAnnotations::new().read_only(false).destructive(true).idempotent(true).open_world(false)));
@@ -270,22 +253,17 @@ impl ServerHandler for Gateway {
         request: Option<PaginatedRequestParams>,
         context: RequestContext<RoleServer>,
     ) -> Result<ListResourcesResult, ErrorData> {
-        let first_page = request.as_ref().and_then(|r| r.cursor.as_ref()).is_none();
         let peer = match self.connect(context.peer.clone()).await {
             Ok(peer) => peer,
-            Err(_) if first_page => return Ok(ListResourcesResult::with_all_items(vec![workbench_resource()])),
+            Err(_) if request.as_ref().and_then(|r| r.cursor.as_ref()).is_none() => {
+                return Ok(ListResourcesResult::default())
+            }
             Err(error) => return Err(error),
         };
         let mut message = ListResourcesRequest::default();
         message.params = request;
         match self.send(peer, message.into(), context).await? {
-            ServerResult::ListResourcesResult(mut result) => {
-                result.resources.retain(|resource| resource.uri != WORKBENCH_URI);
-                if first_page {
-                    result.resources.push(workbench_resource());
-                }
-                Ok(result)
-            }
+            ServerResult::ListResourcesResult(result) => Ok(result),
             _ => Err(unavailable()),
         }
     }
@@ -315,45 +293,6 @@ impl ServerHandler for Gateway {
         request: ReadResourceRequestParams,
         context: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResponse, ErrorData> {
-        if request.uri == WORKBENCH_URI {
-            let meta = serde_json::from_value::<MetaObject>(json!({
-                "ui":{"prefersBorder":false,"csp":{"connectDomains":[],"resourceDomains":[]}},
-                "openai/ui":{"availableDisplayModes":["fullscreen"]}
-            }))
-            .expect("resource metadata");
-            // A top-level workbench preserves SameSite login cookies and native browser downloads.
-            let html = r#"<!doctype html><html><head><meta charset="utf-8"><title>DBX</title>
-<style>body{font:14px system-ui;margin:32px;color:inherit;color-scheme:light dark}button{font:inherit;padding:10px 18px;cursor:pointer}p{line-height:1.6}</style>
-</head><body><h1>DBX</h1><p id="status">正在打开完整数据库工作台…</p><button id="open">打开工作台 · Open workbench</button>
-<script>
-const send = message => parent.postMessage({jsonrpc:'2.0',...message}, '*');
-const open = () => send({id:'dbx-open',method:'ui/open-link',params:{url:'WORKBENCH_URL'}});
-document.getElementById('open').onclick = open;
-addEventListener('message', event => {
-  if(event.source !== parent || event.data?.jsonrpc !== '2.0') return;
-  const message = event.data;
-  if(message.id === 'dbx-init' && message.result) {
-    send({method:'ui/notifications/initialized'});
-    open();
-  }
-  if(message.id === 'dbx-open') {
-    document.getElementById('status').textContent = message.error || message.result?.isError
-      ? '自动打开失败，请点击按钮重试。Unable to open; please retry.'
-      : '工作台已打开。关闭此入口不会停止数据库服务。Workbench opened; closing this panel keeps the service running.';
-  }
-  if(message.id !== undefined && message.method === 'ui/resource-teardown') {
-    send({id:message.id,result:{}});
-  }
-});
-send({id:'dbx-init',method:'ui/initialize',params:{appInfo:{name:'dbx',version:'DBX_VERSION'},appCapabilities:{},protocolVersion:'2026-01-26'}});
-</script></body></html>"#
-                .replace("WORKBENCH_URL", self.handle.base_url.as_str())
-                .replace("DBX_VERSION", env!("CARGO_PKG_VERSION"));
-            return Ok(ReadResourceResult::new(vec![ResourceContents::text(html, WORKBENCH_URI)
-                .with_mime_type(WORKBENCH_MIME)
-                .with_meta(meta)])
-            .into());
-        }
         match self.forward(ReadResourceRequest::new(request).into(), context).await? {
             ServerResult::ReadResourceResult(result) => Ok(result.into()),
             ServerResult::InputRequiredResult(result) => Ok(result.into()),
