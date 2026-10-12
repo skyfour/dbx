@@ -13,7 +13,7 @@ codex plugin marketplace add /解压目录的绝对路径
 codex plugin add dbx@dbx-local
 ```
 
-按 Codex 提示启用插件；已有会话可能需要重新建立 MCP 连接才会加载工具。让 Codex 打开 DBX，调用 `dbx_codex_open`，将返回网址打开到 Codex 浏览器面板。首次使用设置工作台密码、完成原有安全迁移，再添加数据库连接并设置 MCP 权限。
+按 Codex 提示启用插件；已有会话可能需要重新建立 MCP 连接才会加载工具。点击 Codex 左侧 DBX 图标，完整工作台会直接显示在该面板中，包含登录、连接、SQL 编辑器和结果。面板使用本地工作台的原有 Web 界面，不跳转到其他浏览器。Codex 模式使用 HttpOnly、Secure、分区会话 Cookie 保持嵌入式登录；密码和私有 MCP 令牌不会放入界面资源。首次使用设置工作台密码、完成原有安全迁移，再添加数据库连接并设置 MCP 权限。
 
 `dbx_codex_open_table` 打开表；`dbx_codex_execute_and_show` 通过现有 MCP 批量执行器执行 SQL，并显示同一次执行的原始结果。打开链接不会重跑 SQL。链接五分钟后或服务重启后失效，不能为了恢复写入结果而再次执行写入。
 

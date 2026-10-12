@@ -45,8 +45,15 @@ fn cookie_secure_enabled() -> bool {
 }
 
 fn session_cookie(state: &WebState, token: &str) -> String {
-    let secure = if cookie_secure_enabled() { "; Secure" } else { "" };
-    format!("dbx_session={token}; Path={}; HttpOnly; SameSite=Lax{secure}", session_cookie_path(state))
+    let attributes = if state.codex_workbench.is_some() {
+        // Partitioned cookies keep HttpOnly password sessions usable inside the Codex app frame.
+        "SameSite=None; Secure; Partitioned"
+    } else if cookie_secure_enabled() {
+        "SameSite=Lax; Secure"
+    } else {
+        "SameSite=Lax"
+    };
+    format!("dbx_session={token}; Path={}; HttpOnly; {attributes}", session_cookie_path(state))
 }
 
 fn api_path_suffix<'a>(path: &'a str, public_base_path: &str) -> Option<&'a str> {
@@ -234,7 +241,7 @@ pub async fn logout(State(state): State<Arc<WebState>>, req: Request<axum::body:
         // 登出只清除当前登录会话的临时密码，不影响其他会话与桌面端凭据。
         state.app.session_credentials.clear_owner(&token);
     }
-    let cookie = format!("dbx_session=; Path={}; HttpOnly; Max-Age=0", session_cookie_path(&state));
+    let cookie = format!("{}; Max-Age=0", session_cookie(&state, ""));
     (StatusCode::OK, [("set-cookie", cookie.as_str())], Json(serde_json::json!({"ok": true}))).into_response()
 }
 
@@ -302,6 +309,28 @@ pub async fn auth_middleware(
 #[cfg(test)]
 mod tests {
     use super::{api_path_suffix, middleware_api_path_suffix};
+
+    #[tokio::test]
+    async fn codex_sessions_use_private_partitioned_cookies() {
+        use super::*;
+        let directory = tempfile::tempdir().unwrap();
+        let storage =
+            dbx_core::persistence::test_storage::open_unmigrated(&directory.path().join("dbx.db")).await.unwrap();
+        let mut state =
+            WebState::for_tests(Arc::new(dbx_core::connection::AppState::new(storage)), directory.path().to_path_buf());
+        assert!(session_cookie(&state, "fixture").contains("SameSite=Lax"));
+        assert!(!session_cookie(&state, "fixture").contains("Partitioned"));
+        state.codex_workbench = Some(Arc::new(crate::codex::Workbench::new("http://127.0.0.1:1234/".into())));
+        assert_eq!(
+            session_cookie(&state, "fixture"),
+            "dbx_session=fixture; Path=/; HttpOnly; SameSite=None; Secure; Partitioned"
+        );
+        let response = logout(State(Arc::new(state)), Request::new(axum::body::Body::empty())).await;
+        assert_eq!(
+            response.headers()["set-cookie"],
+            "dbx_session=; Path=/; HttpOnly; SameSite=None; Secure; Partitioned; Max-Age=0"
+        );
+    }
 
     #[test]
     fn api_path_suffix_handles_root_api_paths() {

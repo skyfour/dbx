@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { DatabaseSync } from 'node:sqlite';
+import { runInNewContext } from 'node:vm';
 
 const args = process.argv.slice(2);
 const option = (name) => args[args.indexOf(name) + 1];
@@ -73,6 +74,28 @@ try {
   assert.equal(structured(await current.call('dbx_codex_status')).database_ready, false);
   const initialTools = await current.request('tools/list');
   assert.deepEqual(initialTools.tools.map((tool) => tool.name).sort(), ['dbx_codex_open', 'dbx_codex_status', 'dbx_codex_stop']);
+  const entry = initialTools.tools.find(tool => tool.name === 'dbx_codex_open');
+  assert.equal(entry._meta['openai/ui'].entrypoints[0].type, 'global');
+  const resource = await current.request('resources/read', { uri: entry._meta.ui.resourceUri });
+  const app = resource.contents[0];
+  assert.equal(app.mimeType, 'text/html;profile=mcp-app');
+  assert(app.text.includes('<iframe'), 'Sidebar must directly render the workbench');
+  assert(!app.text.includes('ui/open-link'), 'Sidebar must not open a separate browser');
+  assert.deepEqual(app._meta.ui.csp.frameDomains, [new URL(base).origin]);
+  const sent = [], parent = { postMessage: message => sent.push(message) };
+  let receive;
+  runInNewContext(app.text.match(/<script>([\s\S]*?)<\/script>/)[1], {
+    parent, addEventListener: (_, handler) => { receive = handler; },
+  }, { timeout: 1000 });
+  assert.equal(sent[0].method, 'ui/initialize');
+  receive({ source: {}, data: { jsonrpc: '2.0', id: 'dbx-init', result: {} } });
+  assert.equal(sent.length, 1);
+  receive({ source: parent, data: { jsonrpc: '2.0', id: 'dbx-init', result: {} } });
+  assert.equal(sent[1].method, 'ui/notifications/initialized');
+  receive({ source: parent, data: { jsonrpc: '2.0', id: 99, method: 'ui/resource-teardown' } });
+  assert.equal(sent[2].id, 99);
+  assert(!sent.some(message => message.method === 'ui/open-link'));
+
   const html = await (await fetch(base)).text();
   assert.match(html, /<html/);
   const asset = html.match(/(?:src|href)="([^" ]+\.js)"/);
@@ -80,6 +103,7 @@ try {
   const script = await fetch(new URL(asset[1], base));
   assert(script.ok && (await script.text()).length > 1000, 'Embedded JS missing');
   const setup = await http('/api/auth/setup', 'POST', { password });
+  assert.match(setup.response.headers.get('set-cookie'), /HttpOnly; SameSite=None; Secure; Partitioned/);
   cookie = setup.response.headers.get('set-cookie')?.split(';')[0];
   assert(cookie, 'Setup must return a session cookie');
   await http('/api/migration/start', 'POST');
@@ -152,7 +176,7 @@ try {
   const reopened = structured(await current.call('dbx_codex_execute_and_show', { ...selector, sql: 'SELECT id, length(body) AS original_length FROM samples LIMIT 3; SELECT value FROM counter' }));
   assert.equal(reopened.results.length, 2);
   passed = true;
-  console.log(JSON.stringify({ passed: true, pluginDir, dataDir, workbenchUrl: base, resultUrl: reopened.workbench_url, checks: ['native stdio', 'embedded assets', 'setup gate', 'shared lifetime', 'SQLite', 'raw result intent', 'read-only policy', 'write exactly once', 'explicit stop', 'restart persistence'] }, null, 2));
+  console.log(JSON.stringify({ passed: true, pluginDir, dataDir, workbenchUrl: base, resultUrl: reopened.workbench_url, checks: ['native stdio', 'embedded sidebar resource', 'partitioned session cookie', 'embedded assets', 'setup gate', 'shared lifetime', 'SQLite', 'raw result intent', 'read-only policy', 'write exactly once', 'explicit stop', 'restart persistence'] }, null, 2));
 } finally {
   if (current && current.child.exitCode === null && !(passed && args.includes('--keep-running'))) {
     try { await current.call('dbx_codex_stop', { confirm_interrupt: true }); } catch { /* Startup failures have no service to stop. */ }

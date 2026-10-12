@@ -37,3 +37,9 @@ The actual Codex in-app browser passed these manual checks against the installed
 Independent review found and corrected a batch-tool allowlist bypass, unawaited upstream protocol cleanup, and a restart-wait race. Both substantive defects have failing-before/passing-after regressions. Browser acceptance additionally found and corrected loss of result intent during login, covered for both root entry and `/login` reload. The reviewer rechecked the fixes and found no remaining important defect.
 
 Only SQLite was live-connected. Other database servers, third-party DBX plugins/driver agents, Windows/Linux runtime behavior and release signing are not claimed as locally verified. See the capability matrix and platform gates in the README.
+
+## Direct sidebar embedding follow-up
+
+The sidebar resource renders the existing workbench in a full-size iframe, with an exact loopback origin in its frame allowlist and no `ui/open-link` launcher. Codex-only password sessions use HttpOnly partitioned cookies; regular Web sessions retain their existing SameSite behavior. Logout clears the matching cookie partition.
+
+Follow-up validation on macOS ARM64: 167 Web unit tests passed (1 pre-existing ignored), native runtime/gateway 20 and packaging 5 passed, and the newly packaged E2E verifier passed. The verifier checks the global sidebar entry, iframe resource, MCP App initialization/teardown, cookie attributes and the existing database acceptance flow. It explicitly supplies the session cookie during HTTP checks, so these checks do not prove browser cookie acceptance. The earlier browser checks above used the in-app browser, not the new sidebar iframe; direct sidebar rendering and embedded login still require a Codex UI check.
