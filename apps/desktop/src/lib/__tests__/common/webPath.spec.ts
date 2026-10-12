@@ -2,7 +2,22 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import { apiUrl, apiWebSocketUrl, dbxWebBasePath, webPath } from "@/lib/common/webPath";
 
 describe("webPath", () => {
-  afterEach(()=>vi.unstubAllEnvs());
+  afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
+  it("resolves packaged Codex logos and dynamic database icons before rendering", () => {
+    vi.stubEnv("VITE_DBX_CODEX_APP", true);
+    vi.stubGlobal("__DBX_CODEX_ASSETS__", new Map([
+      ["/logo.png", "blob:logo"],
+      ["/icons/database/mysql.svg", "blob:mysql"],
+      ["/icons/database/uxdb-dark.svg", "blob:uxdb"],
+    ]));
+    expect(webPath("/logo.png")).toBe("blob:logo");
+    const database = "mysql";
+    expect(webPath(`/icons/database/${database}.svg`)).toBe("blob:mysql");
+    expect(webPath("/icons/database/uxdb-dark.svg")).toBe("blob:uxdb");
+    expect(apiUrl("/auth/check")).toBe("/api/auth/check");
+    vi.stubEnv("VITE_DBX_CODEX_APP", "");
+    expect(webPath("/logo.png", "/dbx")).toBe("/dbx/logo.png");
+  });
   it("keeps Codex assets and API paths while using fragment-only auth navigation",()=>{
     vi.stubEnv("VITE_DBX_CODEX_APP",true);
     expect(dbxWebBasePath("/mcp-app/dbx","/host/")).toBe("");

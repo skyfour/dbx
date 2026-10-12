@@ -22,6 +22,11 @@ export function dbxWebBasePath(pathname = globalThis.location?.pathname ?? "", b
 
 export function webPath(path: string, basePath = dbxWebBasePath()): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (import.meta.env.VITE_DBX_CODEX_APP) {
+    const assets = (globalThis as typeof globalThis & { __DBX_CODEX_ASSETS__?: Map<string, string> }).__DBX_CODEX_ASSETS__;
+    const asset = assets?.get(normalizedPath);
+    if (asset) return asset;
+  }
   if (import.meta.env.VITE_DBX_CODEX_APP && (normalizedPath === "/" || normalizedPath === "/login")) return `#${normalizedPath}`;
   const base = normalizeBasePath(basePath);
   return `${base}${normalizedPath}` || "/";
