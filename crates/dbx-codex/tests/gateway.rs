@@ -25,6 +25,23 @@ async fn bootstrap_tools_survive_unconfigured_backend() {
     for expected in ["dbx_codex_open", "dbx_codex_status"] {
         assert!(tools.tools.iter().any(|tool| tool.name == expected));
     }
+    let entry = tools.tools.iter().find(|tool| tool.name == "dbx_codex_open").unwrap();
+    let entry = serde_json::to_value(entry).unwrap();
+    assert_eq!(entry["_meta"]["openai/ui"]["entrypoints"][0]["type"], "global");
+    assert_eq!(entry["_meta"]["ui"]["resourceUri"], "ui://dbx/workbench.html");
+    assert_eq!(entry["icons"][0]["mimeType"], "image/svg+xml");
+    let resources = client.list_resources(None).await.unwrap();
+    assert_eq!(resources.resources.len(), 1);
+    let resource = client.read_resource(ReadResourceRequestParams::new("ui://dbx/workbench.html")).await.unwrap();
+    let resource = serde_json::to_value(resource).unwrap();
+    let content = &resource["contents"][0];
+    assert_eq!(content["mimeType"], "text/html;profile=mcp-app");
+    assert_eq!(content["_meta"]["ui"]["csp"]["connectDomains"], serde_json::json!([]));
+    let html = content["text"].as_str().unwrap();
+    assert!(!html.contains("<iframe"));
+    assert!(html.contains("ui/open-link") && html.contains("http://127.0.0.1:1/"));
+    assert!(html.contains("ui/initialize") && html.contains("ui/notifications/initialized"));
+    assert!(!html.contains("private-fixture-credential"));
     let opened = client.call_tool(CallToolRequestParams::new("dbx_codex_open")).await.unwrap();
     assert_ne!(opened.is_error, Some(true));
     assert_eq!(opened.structured_content.as_ref().unwrap()["url"], "http://127.0.0.1:1/");
@@ -196,6 +213,7 @@ async fn tool_and_resource_pagination_is_preserved() {
     assert!(second.next_cursor.is_none());
     let first = client.list_resources(None).await.unwrap();
     assert_eq!(first.resources[0].uri, "dbx://one");
+    assert_eq!(first.resources[1].uri, "ui://dbx/workbench.html");
     let mut page = PaginatedRequestParams::default();
     page.cursor = first.next_cursor;
     let second = client.list_resources(Some(page)).await.unwrap();
