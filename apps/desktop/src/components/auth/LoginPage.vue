@@ -54,6 +54,7 @@ async function submit() {
       body: JSON.stringify({ password: password.value }),
     });
     if (res.ok) {
+      await res.body?.cancel();
       emit("authenticated");
     } else {
       error.value = await readAuthError(res);

@@ -8,7 +8,7 @@ export interface StartupAuthentication {
 
 export async function checkStartupAuthentication(signal?: AbortSignal): Promise<StartupAuthentication> {
   const response = await fetch(apiUrl("/api/auth/check"), { credentials: "same-origin", signal });
-  if (!response.ok) throw new Error("AUTH_CHECK_FAILED");
+  if (!response.ok) { await response.body?.cancel(); throw new Error("AUTH_CHECK_FAILED"); }
   const result: unknown = await response.json();
   if (!result || typeof result !== "object" || !("required" in result) || !("authenticated" in result) || typeof result.required !== "boolean" || typeof result.authenticated !== "boolean") {
     throw new Error("AUTH_CHECK_FAILED");
@@ -25,6 +25,7 @@ export async function logoutWeb(): Promise<void> {
     method: "POST",
     credentials: "same-origin",
   });
+  await response.body?.cancel();
   if (!response.ok) {
     throw new Error("AUTH_LOGOUT_FAILED");
   }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -1072,7 +1073,7 @@ async function finishTransaction(commit: boolean): Promise<boolean> {
 async function handleOpenChange(value: boolean) {
   if (!value && ((executing.value && manualTransaction.value) || resolvingTransaction.value)) return;
   if (!value && txnSessionId.value) {
-    if (!window.confirm(t("dataCompare.rollbackBeforeClose")) || !(await finishTransaction(false))) return;
+    if (!(await confirmWorkbench(t("dataCompare.rollbackBeforeClose"))) || !(await finishTransaction(false))) return;
   }
   open.value = value;
 }

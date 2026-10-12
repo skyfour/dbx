@@ -8,6 +8,7 @@ import { packagePlugin, hostTarget } from "./package-codex-plugin.mjs";
 
 let root;
 let binaries;
+let workbench;
 const version = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")).version;
 const suffix = process.platform === "win32" ? ".exe" : "";
 async function fixture(directory, fixtureVersion = version, embedded = true) {
@@ -21,42 +22,45 @@ async function fixture(directory, fixtureVersion = version, embedded = true) {
 }
 before(async () => {
   root = await mkdtemp(join(tmpdir(), "dbx plugin package "));
+  workbench = join(root,"workbench.html");
+  await writeFile(workbench,'<!doctype html><div id="root"></div><script>/* installCodexTransport dbx_codex_ui */</script>');
   binaries = await fixture(join(root, "input binaries"));
 });
 after(async () => { if (root) await rm(root, { recursive: true, force: true }); });
 
 test("rejects missing binaries without creating an output", async () => {
   const output = join(root, "missing output");
-  await assert.rejects(packagePlugin({ target: hostTarget(), binaries: root, output }), /dbx-codex.*missing|ENOENT/);
+  await assert.rejects(packagePlugin({ workbench, target: hostTarget(), binaries: root, output }), /dbx-codex.*missing|ENOENT/);
   await assert.rejects(stat(output), /ENOENT/);
 });
 
 test("rejects an incompatible binary version", async () => {
   const bad = await fixture(join(root, "bad binaries"), "0.0.0");
-  await assert.rejects(packagePlugin({ target: hostTarget(), binaries: bad, output: join(root, "bad output") }), /version/);
+  await assert.rejects(packagePlugin({ workbench, target: hostTarget(), binaries: bad, output: join(root, "bad output") }), /version/);
 });
 
 test("rejects a Web binary without embedded frontend assets", async () => {
   const incomplete = await fixture(join(root, "incomplete binaries"), version, false);
-  await assert.rejects(packagePlugin({ target: hostTarget(), binaries: incomplete, output: join(root, "incomplete output") }), /embedded|features/);
+  await assert.rejects(packagePlugin({ workbench, target: hostTarget(), binaries: incomplete, output: join(root, "incomplete output") }), /embedded|features/);
 });
 
 test("refuses to overwrite an existing output directory", async () => {
   const output = join(root, "existing");
   await mkdir(output);
   await writeFile(join(output, "keep.txt"), "keep");
-  await assert.rejects(packagePlugin({ target: hostTarget(), binaries, output }), /exist/);
+  await assert.rejects(packagePlugin({ workbench, target: hostTarget(), binaries, output }), /exist/);
   assert.equal(await readFile(join(output, "keep.txt"), "utf8"), "keep");
 });
 
 test("packages relocatable executables, relative metadata and a checksummed archive", async () => {
   const output = join(root, "packaged output");
-  await packagePlugin({ target: hostTarget(), binaries, output });
+  await packagePlugin({ workbench, target: hostTarget(), binaries, output });
   const moved = join(root, "relocated output");
   await rename(output, moved);
   const plugin = join(moved, "plugins", "dbx");
   const manifest = JSON.parse(await readFile(join(plugin, ".codex-plugin", "plugin.json"), "utf8"));
   assert.equal(manifest.version, version);
+  assert.equal(await readFile(join(plugin,"assets/workbench.html"),"utf8"), await readFile(workbench,"utf8"));
   assert.equal(manifest.mcpServers, "./.mcp.json");
   const mcp = JSON.parse(await readFile(join(plugin, ".mcp.json"), "utf8"));
   assert.equal(mcp.mcpServers.dbx.command, `./bin/dbx-codex${suffix}`);
@@ -74,4 +78,10 @@ test("packages relocatable executables, relative metadata and a checksummed arch
   assert.ok((await stat(join(plugin, "LICENSE"))).size > 0);
   assert.match(await readFile(join(plugin, "README.md"), "utf8"), /codex plugin add dbx@dbx-local/);
   assert.match(await readFile(join(plugin, "README.zh-CN.md"), "utf8"), /confirm_interrupt=true/);
+});
+
+test("rejects missing or iframe workbench assets", async () => {
+  await assert.rejects(packagePlugin({target:hostTarget(),binaries,workbench:join(root,"missing.html"),output:join(root,"missing-ui")}), /ENOENT/);
+  const bad=join(root,"iframe.html");await writeFile(bad,'<iframe></iframe>installCodexTransport dbx_codex_ui');
+  await assert.rejects(packagePlugin({target:hostTarget(),binaries,workbench:bad,output:join(root,"iframe-ui")}), /native workbench/);
 });

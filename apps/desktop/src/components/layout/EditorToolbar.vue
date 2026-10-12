@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { computed, nextTick, onUnmounted, ref, watch, watchEffect } from "vue";
 import { useI18n } from "vue-i18n";
 import {
@@ -321,9 +322,9 @@ const exPasteSqlInConditionTooltip = computed(() => formatShortcutTooltip(t("too
 const isObjectSourceTab = computed(() => !!props.activeTab.objectSource || !!props.activeTab.sourceLoad);
 const objectSourceRefreshing = computed(() => !!props.activeTab.sourceLoad && !props.activeTab.sourceLoad.error);
 
-function refreshObjectSource() {
+async function refreshObjectSource() {
   if (!isObjectSourceTab.value) return;
-  if (queryStore.isTabDirty(props.activeTab) && !window.confirm(t("objects.refreshDiscardConfirm"))) return;
+  if (queryStore.isTabDirty(props.activeTab) && !(await confirmWorkbench(t("objects.refreshDiscardConfirm")))) return;
   queryStore.refreshObjectSourceTab(props.activeTab.id);
 }
 const executeShortcutDisplay = computed(() => formatShortcutDisplay(settingsStore.editorSettings.shortcuts.executeSql));

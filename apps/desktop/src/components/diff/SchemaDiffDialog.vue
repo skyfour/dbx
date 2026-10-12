@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { promptWorkbench } from "@/lib/common/browserDialogs";
 import { computed, ref, watch, onBeforeUnmount, nextTick } from "vue";
 import { useI18n } from "vue-i18n";
 import { Dialog, DialogHeader, DialogTitle, DialogFooter, DialogContent } from "@/components/ui/dialog";
@@ -1147,10 +1148,10 @@ function handleSelectActiveConfig(id: string) {
   if (config) applyConfigToForm(config);
 }
 
-function handleSaveConfig() {
+async function handleSaveConfig() {
   ensureDefaultConfig(getDbType());
   if (!activeConfig.value) return;
-  const name = window.prompt(t("diff.saveConfigPrompt"), activeConfig.value.name || t("diff.defaultConfigName"));
+  const name = (await promptWorkbench(t("diff.saveConfigPrompt"), activeConfig.value.name || t("diff.defaultConfigName")));
   if (name === null) return;
   const trimmed = name.trim() || t("diff.defaultConfigName");
   const snapshot = snapshotCurrentConfig(trimmed);

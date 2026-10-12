@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { cleanupMcpHistoryRetention, loadMcpHistoryRetentionLimit, saveMcpHistoryRetentionLimit } from "@/lib/backend/api";
 import { HISTORY_RETENTION_LIMITS, useHistoryRetentionSetting } from "@/composables/useHistoryRetentionSetting";
 import { ref, watch, shallowRef, computed, onMounted, onUnmounted, nextTick } from "vue";
@@ -1468,8 +1469,8 @@ function deleteSnippet(id: string) {
   editSnippets.value = editSnippets.value.filter((s) => s.id !== id);
 }
 
-function confirmDeleteSnippet(snippet: SqlSnippet) {
-  if (window.confirm(`Delete snippet "${snippet.label}"?`)) {
+async function confirmDeleteSnippet(snippet: SqlSnippet) {
+  if ((await confirmWorkbench(`Delete snippet "${snippet.label}"?`))) {
     deleteSnippet(snippet.id);
   }
 }
@@ -1623,12 +1624,12 @@ function saveSqlShortcut() {
   void commitSqlShortcuts();
 }
 
-function confirmDeleteSqlShortcut(action: SqlShortcutAction) {
+async function confirmDeleteSqlShortcut(action: SqlShortcutAction) {
   if (isBuiltinSqlShortcut(action.id)) {
     toast(t("settings.sqlShortcutsBuiltinDeleteBlocked"), 3000);
     return;
   }
-  if (window.confirm(t("settings.sqlShortcutsDeleteConfirm", { name: sqlShortcutDisplayLabel(action) }))) {
+  if ((await confirmWorkbench(t("settings.sqlShortcutsDeleteConfirm", { name: sqlShortcutDisplayLabel(action) })))) {
     deleteSqlShortcut(action.id);
   }
 }
@@ -3871,9 +3872,9 @@ async function commitMcpPolicyDraft(): Promise<void> {
   }
 }
 
-function onMcpExecutionModeChange(mode: McpExecutionMode) {
+async function onMcpExecutionModeChange(mode: McpExecutionMode) {
   if (mode === mcpExecutionMode.value) return;
-  if (mode === "high_risk_write" && !window.confirm(t("settings.mcpExecutionModeHighRiskConfirm"))) {
+  if (mode === "high_risk_write" && !(await confirmWorkbench(t("settings.mcpExecutionModeHighRiskConfirm")))) {
     return;
   }
   stageMcpPolicy({ ...mcpPolicyFieldsForExecutionMode(mode), promptHighRiskSql: mode === "safe_write" && mcpPolicyDraft.value.promptHighRiskSql });
@@ -4042,8 +4043,8 @@ const filteredMcpPermissionPreviewRows = computed(() => {
   return mcpPermissionPreviewRows.value.filter((row) => [row.connection, row.database, row.groupSource].some((value) => value.toLocaleLowerCase().includes(query)));
 });
 
-function onMcpGroupExecutionModeChange(groupId: string, mode: McpConnectionExecutionMode | "inherit") {
-  if (mode === "high_risk_write" && !window.confirm(t("settings.mcpGroupPolicyHighRiskConfirm"))) return;
+async function onMcpGroupExecutionModeChange(groupId: string, mode: McpConnectionExecutionMode | "inherit") {
+  if (mode === "high_risk_write" && !(await confirmWorkbench(t("settings.mcpGroupPolicyHighRiskConfirm")))) return;
   const groupPolicies = mcpPolicyDraft.value.groupPolicies.filter((item) => item.groupId !== groupId);
   if (mode !== "inherit") {
     groupPolicies.push({
@@ -4063,8 +4064,8 @@ function mcpConnectionPolicyIsMeaningful(rule: McpConnectionPolicy): boolean {
   return rule.executionModeConfigured || rule.databaseScope !== "all" || rule.databasePolicies.length > 0 || rule.allowSalesforceDml;
 }
 
-function onMcpConnectionExecutionModeChange(connectionId: string, mode: McpConnectionExecutionMode | "inherit") {
-  if (mode === "high_risk_write" && !window.confirm(t("settings.mcpExecutionModeHighRiskConfirm"))) return;
+async function onMcpConnectionExecutionModeChange(connectionId: string, mode: McpConnectionExecutionMode | "inherit") {
+  if (mode === "high_risk_write" && !(await confirmWorkbench(t("settings.mcpExecutionModeHighRiskConfirm")))) return;
   const existing = mcpPolicyDraft.value.connectionPolicies.find((item) => item.connectionId === connectionId);
   const rules = mcpPolicyDraft.value.connectionPolicies.filter((item) => item.connectionId !== connectionId);
   const migrated = existing && existing.executionModePolicyVersion !== 1 ? migrateLegacyMcpConnectionPolicy(existing) : null;
@@ -4121,8 +4122,8 @@ function onMcpConnectionSalesforceDmlChange(connectionId: string, allowed: boole
   stageMcpPolicy({ connectionPolicies: rules });
 }
 
-function onMcpDatabaseExecutionModeChange(connectionId: string, databaseName: string, mode: McpConnectionExecutionMode | "inherit") {
-  if (mode === "high_risk_write" && !window.confirm(t("settings.mcpDatabasePolicyHighRiskConfirm"))) return;
+async function onMcpDatabaseExecutionModeChange(connectionId: string, databaseName: string, mode: McpConnectionExecutionMode | "inherit") {
+  if (mode === "high_risk_write" && !(await confirmWorkbench(t("settings.mcpDatabasePolicyHighRiskConfirm")))) return;
   const existing = mcpPolicyDraft.value.connectionPolicies.find((item) => item.connectionId === connectionId);
   if (!existing || existing.databaseScope !== "selected" || !existing.allowedDatabases.includes(databaseName)) return;
   const migrated = existing.executionModePolicyVersion === 1 ? null : migrateLegacyMcpConnectionPolicy(existing);
@@ -4270,7 +4271,7 @@ async function saveMcpHttpSettings() {
 }
 
 async function rotateMcpHttpToken() {
-  if (mcpHttpSaving.value || !window.confirm(t("settings.mcpHttpRotateTokenConfirm"))) return;
+  if (mcpHttpSaving.value || !(await confirmWorkbench(t("settings.mcpHttpRotateTokenConfirm")))) return;
   mcpHttpSaving.value = true;
   mcpHttpError.value = "";
   try {
@@ -4416,7 +4417,7 @@ async function installMcp() {
 
 async function uninstallMcp() {
   if (mcpInstalling.value || mcpUninstalling.value || !mcpStatus.value?.installed) return;
-  if (!window.confirm(t("settings.mcpUninstallConfirm"))) return;
+  if (!(await confirmWorkbench(t("settings.mcpUninstallConfirm")))) return;
   mcpUninstalling.value = true;
   mcpInstallMessage.value = "";
   mcpInstallError.value = false;
@@ -4438,7 +4439,7 @@ async function uninstallMcp() {
 
 async function uninstallNpmMcpFallback() {
   if (mcpInstalling.value || mcpUninstalling.value || !mcpStatus.value?.npm_installed) return;
-  if (!window.confirm(t("settings.mcpRemoveNpmFallbackConfirm"))) return;
+  if (!(await confirmWorkbench(t("settings.mcpRemoveNpmFallbackConfirm")))) return;
   mcpUninstalling.value = true;
   mcpInstallMessage.value = "";
   mcpInstallError.value = false;
@@ -4664,7 +4665,7 @@ async function uploadSnippetSnapshot() {
 
 async function migrateLegacySnippet() {
   const id = legacySnippetId.value;
-  if (!id || !window.confirm(t("settings.syncSnippetMigrateLegacyConfirm", { id }))) return;
+  if (!id || !(await confirmWorkbench(t("settings.syncSnippetMigrateLegacyConfirm", { id })))) return;
   await runSnippetAction(
     "migrate",
     async () => {
@@ -5229,6 +5230,7 @@ async function changePassword() {
         new_password: newPassword.value,
       }),
     });
+    await res.body?.cancel();
     if (res.ok) {
       passwordMessage.value = t("auth.passwordChanged");
       passwordError.value = false;

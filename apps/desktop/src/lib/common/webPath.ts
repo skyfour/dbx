@@ -14,6 +14,7 @@ function inferredRuntimeBasePath(pathname: string): string {
 }
 
 export function dbxWebBasePath(pathname = globalThis.location?.pathname ?? "", buildBase = import.meta.env.BASE_URL): string {
+  if (import.meta.env.VITE_DBX_CODEX_APP) return "";
   const configured = normalizeBasePath(buildBase);
   if (configured) return configured;
   return normalizeBasePath(inferredRuntimeBasePath(pathname));
@@ -21,6 +22,7 @@ export function dbxWebBasePath(pathname = globalThis.location?.pathname ?? "", b
 
 export function webPath(path: string, basePath = dbxWebBasePath()): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (import.meta.env.VITE_DBX_CODEX_APP && (normalizedPath === "/" || normalizedPath === "/login")) return `#${normalizedPath}`;
   const base = normalizeBasePath(basePath);
   return `${base}${normalizedPath}` || "/";
 }
@@ -34,6 +36,7 @@ export function apiUrl(path: string, basePath = dbxWebBasePath()): string {
 type WebSocketLocation = Pick<Location, "protocol" | "host"> | undefined;
 
 export function apiWebSocketUrl(path: string, basePath = dbxWebBasePath(), currentLocation: WebSocketLocation = globalThis.location): string {
+  if (import.meta.env.VITE_DBX_CODEX_APP) return `ws://dbx.invalid${apiUrl(path, basePath)}`;
   const protocol = currentLocation?.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${currentLocation?.host ?? ""}${apiUrl(path, basePath)}`;
 }

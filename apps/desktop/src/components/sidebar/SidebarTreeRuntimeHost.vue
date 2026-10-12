@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { computed, defineAsyncComponent, nextTick, watch, onBeforeUnmount, onScopeDispose, inject, reactive, ref, shallowRef } from "vue";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import PluginWorkbenchHost from "@/components/plugins/PluginWorkbenchHost.vue";
@@ -2962,7 +2963,7 @@ async function executeXuguSchedulerJobAction(action: XuguSchedulerJobAction) {
   if (currentDatabaseType() !== "xugu" || node.type !== "job" || !node.connectionId || !node.database) return;
   const sql = buildXuguSchedulerJobSql(action, node.objectName || node.label);
   if (!sql) return;
-  if (action === "drop" && !window.confirm(t("xuguSchedulerJob.confirmDrop", { name: node.label }))) return;
+  if (action === "drop" && !(await confirmWorkbench(t("xuguSchedulerJob.confirmDrop", { name: node.label })))) return;
   try {
     await connectionStore.ensureConnected(node.connectionId);
     const executed = await executeTreeNodeSqlWithProductionGuard(node, sql, { database: node.database, schema: node.schema });

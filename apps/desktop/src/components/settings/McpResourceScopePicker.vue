@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { computed, ref } from "vue";
 import { ChevronDown, ChevronRight, Database, Folder, Search } from "@lucide/vue";
 import { useI18n } from "vue-i18n";
@@ -212,10 +213,10 @@ function copyCustomScope(groupIds: readonly string[], connectionIds: readonly st
   return { allowedGroupIds: [...groupIds], allowedConnectionIds: [...(connectionIds ?? [])] };
 }
 
-function setScopeMode(mode: ScopeMode) {
+async function setScopeMode(mode: ScopeMode) {
   if (props.disabled || props.busy || mode === scopeMode.value) return;
   if (mode === "all") {
-    if ((props.allowedGroupIds.length > 0 || (props.allowedConnectionIds?.length ?? 0) > 0) && !window.confirm(t("settings.mcpResourceScopeAllConfirm"))) return;
+    if ((props.allowedGroupIds.length > 0 || (props.allowedConnectionIds?.length ?? 0) > 0) && !(await confirmWorkbench(t("settings.mcpResourceScopeAllConfirm")))) return;
     lastCustomScope.value = copyCustomScope(props.allowedGroupIds, props.allowedConnectionIds);
     emit("update:scope", { allowedGroupIds: [], allowedConnectionIds: null });
     return;

@@ -38,8 +38,19 @@ Independent review found and corrected a batch-tool allowlist bypass, unawaited 
 
 Only SQLite was live-connected. Other database servers, third-party DBX plugins/driver agents, Windows/Linux runtime behavior and release signing are not claimed as locally verified. See the capability matrix and platform gates in the README.
 
-## Direct sidebar embedding follow-up
+## Native MCP App replacement — 2026-10-12
 
-The sidebar resource renders the existing workbench in a full-size iframe, with an exact loopback origin in its frame allowlist and no `ui/open-link` launcher. Codex-only password sessions use HttpOnly partitioned cookies; regular Web sessions retain their existing SameSite behavior. Logout clears the matching cookie partition.
+The HTTP iframe attempt above was incompatible with the installed Codex host. Its CSP normalizer and sandbox network filter reject ordinary loopback HTTP. The browser acceptance recorded above applies to the earlier Web UI, not the sidebar implementation below.
 
-Follow-up validation on macOS ARM64: 167 Web unit tests passed (1 pre-existing ignored), native runtime/gateway 20 and packaging 5 passed, and the newly packaged E2E verifier passed. The verifier checks the global sidebar entry, iframe resource, MCP App initialization/teardown, cookie attributes and the existing database acceptance flow. It explicitly supplies the session cookie during HTTP checks, so these checks do not prove browser cookie acceptance. The earlier browser checks above used the in-app browser, not the new sidebar iframe; direct sidebar rendering and embedded login still require a Codex UI check.
+The current sidebar resource bundles the full existing Vue workbench, workers, fonts and icons (145 assets, approximately 12.5 MB compressed HTML). It has no HTTP iframe, external script, browser redirect or network allowlist. An app-only native MCP tool carries bounded binary HTTP uploads/responses, SSE and Redis WebSocket messages. The password session cookie stays in the gateway. Downloads use private files in the data directory's `exports` folder; confirmations use in-panel dialogs because the host disables native dialogs and downloads.
+
+Current local checks:
+
+- Native gateway/runtime and UI transport: 24 passed, including private session isolation, binary uploads, encoded path validation, large text/binary WebSocket messages, disposal and private exports.
+- Web backend: 166 unit tests plus 1 HTTP integration test passed; 1 pre-existing ignored test.
+- Frontend typecheck and standalone MCP UI build passed. Full rework regression: 1,734 files / 21,225 tests passed. A subsequent full run after review fixes passed 21,227 tests with one Redis infinite-scroll timing failure; the unchanged Redis spec then passed all 56 tests on rerun. Additional focused tests cover repeated void HTTP responses, native Mongo archive upload, auth paths, failed exports and stream cancellation.
+- Build/packaging self-checks: 7 passed, including JavaScript syntax, worker asset rewriting and rejecting missing/iframe UI packages.
+- The packaged native verifier passed with an actual 12.5 MB MCP resource, private native login, native export, SQLite, policy denials, exactly-once writes and restart persistence.
+- Independent review found and fixed an XHR upload path outside the native transport, unconsumed response leaks and over-restrictive encoded paths; focused regressions passed.
+
+The new package is installed in the local Codex cache. Actual left-rail rendering/login remains pending a Codex host UI check; protocol, build and HTTP checks alone do not establish that the visible sidebar works. No host security policies were modified. Only macOS ARM64 and SQLite were live-tested; other platform and database gates above still apply.

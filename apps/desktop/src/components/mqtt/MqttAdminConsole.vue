@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
 import { useI18n } from "vue-i18n";
 import { mqttGetBrokerInfo, mqttListTopics, mqttListSavedTopicConfigs, mqttGetMessages, mqttSubscribe, mqttUnsubscribe, mqttSaveTopicConfig, mqttDeleteTopicConfig, mqttClearMessages } from "@/lib/backend/api";
@@ -192,7 +193,7 @@ async function handleToggleEnabled(config: MqttSavedTopic) {
 }
 
 async function handleDelete(config: MqttSavedTopic) {
-  if (!window.confirm(t("connection.mqttDeleteSubscriptionConfirm", { topic: config.topic }))) return;
+  if (!(await confirmWorkbench(t("connection.mqttDeleteSubscriptionConfirm", { topic: config.topic })))) return;
   try {
     if (subscribedTopics.value.some(([topic]) => topic === config.topic)) await mqttUnsubscribe(props.connectionId, config.topic);
     await mqttDeleteTopicConfig(props.connectionId, config.topic);

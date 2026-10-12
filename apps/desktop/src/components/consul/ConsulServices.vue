@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from "vue";
 import { CircleCheck, Loader2, LockKeyhole, Pause, Plus, Radio, RefreshCcw, Search, ServerCog, Trash2, Wrench } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
@@ -510,7 +511,7 @@ async function deregister(id: string) {
   if (!canAgentWrite.value || deregisterPendingId.value || maintenancePendingId.value) return;
   const node = agentTarget.value?.node;
   if (!node) return;
-  if (!window.confirm(`${t("consul.ui.deregisterService", { id, node })}\n\n${t("consul.ui.deregisterServiceHint")}`)) return;
+  if (!(await confirmWorkbench(`${t("consul.ui.deregisterService", { id, node })}\n\n${t("consul.ui.deregisterServiceHint")}`))) return;
   const connectionId = props.connectionId;
   const generation = consulStore.generation;
   const isCurrent = () => connectionId === props.connectionId && generation === consulStore.generation;

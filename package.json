@@ -22,6 +22,7 @@
     "release:agents": "node scripts/release.mjs agents",
     "release:app": "node scripts/release.mjs app",
     "release:packages": "node scripts/release.mjs packages",
+    "build:codex-ui": "node scripts/build-codex-ui.mjs",
     "package:codex-plugin": "node scripts/package-codex-plugin.mjs",
     "test:codex-plugin-package": "node --test scripts/package-codex-plugin.test.mjs",
     "test:release": "node --test scripts/release.test.mjs",

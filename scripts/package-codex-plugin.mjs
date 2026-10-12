@@ -19,7 +19,7 @@ export function hostTarget() {
   return target;
 }
 
-export async function packagePlugin({ target, output, binaries }) {
+export async function packagePlugin({ target, output, binaries, workbench }) {
   if (target !== hostTarget()) throw new Error("Package on the target platform so both native binaries can be verified");
   if (!output) throw new Error("--output is required");
   output = resolve(output);
@@ -44,6 +44,11 @@ export async function packagePlugin({ target, output, binaries }) {
   if (check.status !== 0 || capabilities.version !== version || capabilities.embedded_frontend !== true || capabilities.full_features !== true) {
     throw new Error("Web binary requires embedded frontend and full default features; rebuild with --features dbx-web/codex-plugin");
   }
+  workbench = resolve(workbench ?? join(repo, "target/codex-ui-workbench.html"));
+  const ui = await readFile(workbench, "utf8");
+  if (!ui.includes("installCodexTransport") || !ui.includes("dbx_codex_ui") || /<iframe\b|<script[^>]+src=/i.test(ui)) {
+    throw new Error("Complete native workbench missing; run pnpm build:codex-ui");
+  }
   await mkdir(dirname(output), { recursive: true });
   const stage = await mkdtemp(join(dirname(output), ".dbx-codex-package-"));
   try {
@@ -62,6 +67,7 @@ export async function packagePlugin({ target, output, binaries }) {
       await copyFile(join(binaries, name + suffix), destination);
       await chmod(destination, 0o755);
     }
+    await copyFile(workbench, join(plugin, "assets/workbench.html"));
     await copyFile(join(repo, "LICENSE"), join(plugin, "LICENSE"));
     for (const name of ["README.md", "README.zh-CN.md"]) {
       await copyFile(join(repo, "packages/codex-plugin", name), join(plugin, name));
@@ -93,7 +99,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     const options = {};
     for (let index = 2; index < process.argv.length; index += 2) {
       const flag = process.argv[index];
-      if (!["--target", "--output", "--binaries"].includes(flag) || !process.argv[index + 1]) throw new Error("Usage: node scripts/package-codex-plugin.mjs --target <target> --output <new-directory> [--binaries <directory>]");
+      if (!["--target", "--output", "--binaries", "--workbench"].includes(flag) || !process.argv[index + 1]) throw new Error("Usage: node scripts/package-codex-plugin.mjs --target <target> --output <new-directory> [--binaries <directory>] [--workbench <HTML>]");
       options[flag.slice(2)] = process.argv[index + 1];
     }
     console.log(await packagePlugin(options));

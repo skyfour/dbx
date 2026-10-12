@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { formatError } from "@/lib/backend/errorUtils";
 import { translateBackendError } from "@/i18n/backend-errors";
 import { computed, ref, watch } from "vue";
@@ -267,7 +268,7 @@ async function unloadTopic() {
   const current = topicRef.value;
   if (!current || props.readOnly || unloading.value) return;
   if (!(await confirmMqWrite(t("mqClients.unloadTopic")))) return;
-  if (!confirm(t("mqClients.confirmUnload"))) return;
+  if (!(await confirmWorkbench(t("mqClients.confirmUnload")))) return;
 
   unloading.value = true;
   error.value = undefined;

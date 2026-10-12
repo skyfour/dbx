@@ -13,7 +13,7 @@ codex plugin marketplace add /解压目录的绝对路径
 codex plugin add dbx@dbx-local
 ```
 
-按 Codex 提示启用插件；已有会话可能需要重新建立 MCP 连接才会加载工具。点击 Codex 左侧 DBX 图标，完整工作台会直接显示在该面板中，包含登录、连接、SQL 编辑器和结果。面板使用本地工作台的原有 Web 界面，不跳转到其他浏览器。Codex 模式使用 HttpOnly、Secure、分区会话 Cookie 保持嵌入式登录；密码和私有 MCP 令牌不会放入界面资源。首次使用设置工作台密码、完成原有安全迁移，再添加数据库连接并设置 MCP 权限。
+按 Codex 提示启用插件；已有会话可能需要重新建立 MCP 连接才会加载工具。点击 Codex 左侧 DBX 图标，完整工作台会直接显示在该面板中，包含登录、连接、SQL 编辑器和结果。面板直接加载打包的原有界面与资源，HTTP、流式事件和 WebSocket 通过仅对应用展示的 MCP 工具与本地后台通信。会话 Cookie 保留在原生网关中，不返回给界面或模型工具；用户在界面输入密码，仅发送到本地认证接口，界面资源不包含凭据。首次使用设置工作台密码、完成原有安全迁移，再添加数据库连接并设置 MCP 权限。
 
 `dbx_codex_open_table` 打开表；`dbx_codex_execute_and_show` 通过现有 MCP 批量执行器执行 SQL，并显示同一次执行的原始结果。打开链接不会重跑 SQL。链接五分钟后或服务重启后失效，不能为了恢复写入结果而再次执行写入。
 
@@ -31,7 +31,7 @@ codex plugin add dbx@dbx-local
 | --- | --- |
 | 连接、SQL 编辑/执行/取消、历史、权限、表分页与编辑 | 复用现有 Web/HTTP/core 实现，与 MCP 共用持久化连接 |
 | MCP 打开表与原始查询结果 | 新增不透明导航标识，不重跑 SQL |
-| 导入导出、SQL 上传下载、SQLite 路径 | 沿用 Web 流程；路径属于本地后端主机，下载由浏览器处理 |
+| 导入导出、SQL 上传下载、SQLite 路径 | 沿用 Web 流程；路径属于本地后端主机，下载保存到私有数据目录的 `exports` 文件夹，面板显示保存路径 |
 | Redis、MongoDB 及其他数据库 | 沿用 Web 适配器，仍需对应服务器和凭据 |
 | 驱动管理和 DBX 插件中心 | 沿用 Web 能力，需要时另装驱动代理/JRE/系统依赖 |
 | 外部 SQL 文件夹监视/编辑、桌面深链、原生更新 | 原有 Web 限制，桌面专属 API 明确报告不可用；本插件通过 Codex/原生产物更新 |
@@ -45,6 +45,7 @@ codex plugin add dbx@dbx-local
 pnpm install --frozen-lockfile
 pnpm --filter @dbx-app/mongo-shell build
 pnpm build
+pnpm build:codex-ui
 cargo build --locked --release -p dbx-codex -p dbx-web --features dbx-web/codex-plugin
 node scripts/package-codex-plugin.mjs --target aarch64-apple-darwin --binaries target/release --output target/codex-plugin/local
 node --test scripts/package-codex-plugin.test.mjs

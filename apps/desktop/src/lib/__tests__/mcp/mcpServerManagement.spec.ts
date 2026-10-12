@@ -22,7 +22,7 @@ describe("MCP server management", () => {
 
   it("exposes a confirmed uninstall action only for an installed desktop server", () => {
     expect(settingsDialogSource).toContain('v-if="!isWeb && mcpStatus?.installed"');
-    expect(settingsDialogSource).toContain('window.confirm(t("settings.mcpUninstallConfirm"))');
+    expect(settingsDialogSource).toContain('await confirmWorkbench(t("settings.mcpUninstallConfirm"))');
     expect(settingsDialogSource).toContain("await uninstallMcpServer()");
     expect(settingsDialogSource).toContain('t("settings.mcpUninstallCommand")');
     expect(settingsDialogSource).toContain("copyMcpText('uninstall', mcpUninstallCommand)");

@@ -17,16 +17,37 @@ type ProgressMap = Arc<Mutex<HashMap<ProgressToken, ProgressToken>>>;
 pub struct Gateway {
     handle: RuntimeHandle,
     token: String,
+    ui: crate::ui_transport::UiTransport,
+    workbench_html: Option<String>,
     upstream: tokio::sync::Mutex<Option<RunningService<RoleClient, Notifications>>>,
     progress: ProgressMap,
 }
 
 impl Gateway {
     pub fn new(handle: RuntimeHandle, token: String) -> Self {
-        Self { handle, token, upstream: tokio::sync::Mutex::new(None), progress: Default::default() }
+        let ui = crate::ui_transport::UiTransport::new(handle.base_url.clone()).expect("validated loopback runtime");
+        Self {
+            handle,
+            token,
+            ui,
+            workbench_html: None,
+            upstream: tokio::sync::Mutex::new(None),
+            progress: Default::default(),
+        }
+    }
+
+    pub fn with_export_directory(mut self, path: std::path::PathBuf) -> Self {
+        self.ui = self.ui.with_export_directory(path);
+        self
+    }
+
+    pub fn with_workbench_html(mut self, html: String) -> Self {
+        self.workbench_html = Some(html);
+        self
     }
 
     pub async fn shutdown(&self) -> Result<(), String> {
+        self.ui.shutdown().await;
         if let Some(mut service) = self.upstream.lock().await.take() {
             match service.close_with_timeout(Duration::from_secs(3)).await {
                 Ok(Some(_)) => {}
@@ -150,6 +171,11 @@ fn local_tools() -> Vec<Tool> {
         .expect("static metadata"),
     );
     open.icons = Some(vec![Icon::new("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS13aWR0aD0iMS41Ij48ZWxsaXBzZSBjeD0iMTAiIGN5PSI0IiByeD0iNiIgcnk9IjIuNSIvPjxwYXRoIGQ9Ik00IDR2MTJjMCAzLjMgMTIgMy4zIDEyIDBWNE00IDEwYzAgMy4zIDEyIDMuMyAxMiAwIi8+PC9zdmc+").with_mime_type("image/svg+xml").with_sizes(vec!["any".into()])]);
+    let mut ui = Tool::new("dbx_codex_ui", "Private workbench UI transport. Only available to the DBX app; database model tools keep their existing execution policy.",
+        serde_json::from_value::<JsonObject>(json!({"type":"object","properties":{"action":{"type":"string"}},"required":["action"],"additionalProperties":true})).expect("static schema"));
+    ui.meta =
+        Some(serde_json::from_value::<MetaObject>(json!({"ui":{"visibility":["app"]}})).expect("static UI metadata"));
+    tools.push(ui);
     tools.push(Tool::new("dbx_codex_stop", "Stop the shared local DBX workbench. May interrupt other clients, writes, imports or backups. Set confirm_interrupt=true only after the user explicitly authorizes interrupting all work. Persistent data is retained.",
         serde_json::from_value::<JsonObject>(json!({"type":"object","properties":{"confirm_interrupt":{"type":"boolean","default":false}},"additionalProperties":false})).expect("static schema"))
         .annotate(ToolAnnotations::new().read_only(false).destructive(true).idempotent(true).open_world(false)));
@@ -195,6 +221,14 @@ impl ServerHandler for Gateway {
         request: CallToolRequestParams,
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
+        if request.name == "dbx_codex_ui" {
+            let result = self
+                .ui
+                .call(json!(request.arguments.unwrap_or_default()))
+                .await
+                .map_err(|message| ErrorData::invalid_params(message, None))?;
+            return Ok(CallToolResult::structured(result).into());
+        }
         if request.name == "dbx_codex_stop" {
             let args: StopArgs = serde_json::from_value(json!(request.arguments.unwrap_or_default()))
                 .map_err(|_| ErrorData::invalid_params("Expected only confirm_interrupt: boolean", None))?;
@@ -316,26 +350,14 @@ impl ServerHandler for Gateway {
         context: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResponse, ErrorData> {
         if request.uri == WORKBENCH_URI {
-            let origin = self.handle.base_url.origin().ascii_serialization();
             let meta = serde_json::from_value::<MetaObject>(json!({
-                "ui":{"prefersBorder":false,"csp":{"frameDomains":[origin]}},
+                "ui":{"prefersBorder":false,"permissions":{"clipboardWrite":{}},"csp":{"resourceDomains":["blob:","data:"],"frameDomains":[],"connectDomains":[]}},
                 "openai/ui":{"availableDisplayModes":["fullscreen"]}
-            }))
-            .expect("resource metadata");
-            let html = r#"<!doctype html><html><head><meta charset="utf-8"><title>DBX</title>
-<style>html,body{margin:0;width:100%;height:100%;overflow:hidden}iframe{border:0;width:100%;height:100vh;display:block}</style>
-</head><body><iframe title="DBX workbench" src="WORKBENCH_URL" allow="clipboard-read; clipboard-write"></iframe>
-<script>
-const send = message => parent.postMessage({jsonrpc:'2.0',...message}, '*');
-addEventListener('message', event => {
-  if(event.source !== parent || event.data?.jsonrpc !== '2.0') return;
-  if(event.data.id === 'dbx-init' && event.data.result) send({method:'ui/notifications/initialized'});
-  if(event.data.id !== undefined && event.data.method === 'ui/resource-teardown') send({id:event.data.id,result:{}});
-});
-send({id:'dbx-init',method:'ui/initialize',params:{appInfo:{name:'dbx',version:'DBX_VERSION'},appCapabilities:{},protocolVersion:'2026-01-26'}});
-</script></body></html>"#
-                .replace("WORKBENCH_URL", self.handle.base_url.as_str())
-                .replace("DBX_VERSION", env!("CARGO_PKG_VERSION"));
+            })).expect("resource metadata");
+            let html = self
+                .workbench_html
+                .clone()
+                .ok_or_else(|| ErrorData::internal_error("Packaged DBX UI is missing", None))?;
             return Ok(ReadResourceResult::new(vec![ResourceContents::text(html, WORKBENCH_URI)
                 .with_mime_type(WORKBENCH_MIME)
                 .with_meta(meta)])

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from "vue";
 import { CircleCheck, CircleX, Loader2, Pause, Plus, Radio, RefreshCcw, Search, Trash2, TriangleAlert, X } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
@@ -326,7 +327,7 @@ async function updateTtl(id: string, status: ConsulCheckStatus) {
     });
 }
 async function deregister(id: string) {
-  if (canAgentWrite.value && window.confirm(t("consul.ui.deregisterCheck", { id, node: agentTarget.value?.node || t("consul.ui.targetAgent") })))
+  if (canAgentWrite.value && (await confirmWorkbench(t("consul.ui.deregisterCheck", { id, node: agentTarget.value?.node || t("consul.ui.targetAgent") }))))
     await independent(t("consul.ui.writeOperation"), async () => {
       await api.consulAgentDeregisterCheck(props.connectionId, id);
       await load();

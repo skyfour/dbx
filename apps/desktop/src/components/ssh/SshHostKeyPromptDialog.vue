@@ -180,7 +180,7 @@ async function setupTauriPromptBridge() {
 async function fetchPendingPrompts() {
   try {
     const res = await fetch(apiUrl("/api/ssh/prompts/pending"), { credentials: "include" });
-    if (!res.ok) return;
+    if (!res.ok) { await res.body?.cancel(); return; }
     const pending = (await res.json()) as SshPromptRequest[];
     pending.forEach((req) => enqueuePrompt(req));
   } catch {

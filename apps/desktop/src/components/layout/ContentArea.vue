@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { computed, ref, defineAsyncComponent, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { safeLocalStorageGet, safeLocalStorageSet } from "@/lib/backend/safeStorage";
 import { appendDebugLog, isDebugLoggingEnabled } from "@/lib/backend/debugLog";
@@ -1447,7 +1448,11 @@ function refreshData(): boolean {
     return true;
   }
   if (props.activeTab.objectSource || props.activeTab.sourceLoad) {
-    if (queryStore.isTabDirty(props.activeTab) && !window.confirm(t("objects.refreshDiscardConfirm"))) return false;
+    if (queryStore.isTabDirty(props.activeTab)) {
+      const tabId = props.activeTab.id;
+      void confirmWorkbench(t("objects.refreshDiscardConfirm")).then(confirmed => { if (confirmed) queryStore.refreshObjectSourceTab(tabId); });
+      return true;
+    }
     return queryStore.refreshObjectSourceTab(props.activeTab.id);
   }
   // Restored data tabs intentionally omit row data, so refresh must work before DataGrid mounts.

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { applyDdlStoragePreference } from "@/lib/sql/ddlStorage";
 import DatabaseActionsMenu from "@/components/objects/DatabaseActionsMenu.vue";
 import FirebirdObjectManager from "@/components/objects/FirebirdObjectManager.vue";
@@ -1667,7 +1668,7 @@ async function loadSourcePanel(row: ObjectBrowserRow, options?: { preserveEditin
 async function refreshActiveSource() {
   const row = sourceRow.value || (sidePanelMode.value === "source" ? sidePanelRow.value : null);
   if (!row || sidePanelMode.value !== "source") return;
-  if (sourceEditing.value && !window.confirm(t("objects.refreshDiscardConfirm"))) return;
+  if (sourceEditing.value && !(await confirmWorkbench(t("objects.refreshDiscardConfirm")))) return;
   await loadSourcePanel(row, { preserveEditing: true });
 }
 

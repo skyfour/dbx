@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { ref, computed, nextTick, onBeforeUnmount, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useSqlHighlighter } from "@/composables/useSqlHighlighter";
@@ -423,7 +424,7 @@ async function recordRollback(entry: HistoryEntry, affectedRows: number, executi
 
 async function rollback(entry: HistoryEntry, manual = false) {
   if (!canRollbackHistoryEntry(entry) || rollbackLocked.value) return;
-  if (!window.confirm(t("history.rollbackConfirm"))) return;
+  if (!(await confirmWorkbench(t("history.rollbackConfirm")))) return;
 
   entry = { ...entry };
   const connectionId = entry.connection_id!;
@@ -510,7 +511,7 @@ async function finishRollbackTransaction(commit: boolean): Promise<boolean> {
 async function closeHistory() {
   if (resolvingTransaction.value || (isRollingBack.value && pendingRollback.value)) return;
   if (pendingRollback.value) {
-    if (!window.confirm(t("history.rollbackBeforeClose")) || !(await finishRollbackTransaction(false))) return;
+    if (!(await confirmWorkbench(t("history.rollbackBeforeClose"))) || !(await finishRollbackTransaction(false))) return;
   }
   emit("close");
 }

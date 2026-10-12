@@ -574,6 +574,7 @@ async function writeRemoteRuntimeCache(key: string, bytes: Uint8Array, stats: { 
         ownerId,
       }),
     });
+    await response.body?.cancel();
     return response.ok;
   } catch (error) {
     console.warn("[DBX][tab-result-cache:remote-write:error]", { key, error });
@@ -601,7 +602,7 @@ async function listRemoteRuntimeCacheMetadata(): Promise<ResultCacheMetadata[]> 
     return entries.map(normalizeRuntimeMetadata);
   }
   const response = await fetch(apiUrl("/api/tab-runtime-cache/metadata"));
-  if (!response.ok) return [];
+  if (!response.ok) { await response.body?.cancel(); return []; }
   return ((await response.json()) as Record<string, unknown>[]).map(normalizeRuntimeMetadata);
 }
 
@@ -615,7 +616,7 @@ async function pruneRemoteRuntimeCache(options: ResultCachePruneOptions): Promis
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(options),
   });
-  if (!response.ok) throw new Error(`Runtime cache prune failed: ${response.status}`);
+  if (!response.ok) { await response.body?.cancel(); throw new Error(`Runtime cache prune failed: ${response.status}`); }
   return response.json() as Promise<ResultCachePruneResult>;
 }
 
@@ -626,7 +627,8 @@ async function deleteRemoteRuntimeCacheOwner(ownerId: string): Promise<void> {
       await invoke("delete_tab_runtime_cache_owner", { ownerId });
       return;
     }
-    await fetch(apiUrl(`/api/tab-runtime-cache/owner?owner_id=${encodeURIComponent(ownerId)}`), { method: "DELETE" });
+    const response = await fetch(apiUrl(`/api/tab-runtime-cache/owner?owner_id=${encodeURIComponent(ownerId)}`), { method: "DELETE" });
+    await response.body?.cancel();
   } catch {
     // Cache deletion is best-effort; the entry expires server-side anyway.
   }
@@ -641,7 +643,7 @@ async function readRemoteRuntimeCache(key: string): Promise<Uint8Array | undefin
       return entry?.payloadBase64 ? base64ToBytes(entry.payloadBase64) : undefined;
     }
     const response = await fetch(apiUrl(`/api/tab-runtime-cache?key=${encodeURIComponent(key)}`));
-    if (!response.ok) return undefined;
+    if (!response.ok) { await response.body?.cancel(); return undefined; }
     const entry = (await response.json()) as { payloadBase64?: string } | null;
     return entry?.payloadBase64 ? base64ToBytes(entry.payloadBase64) : undefined;
   } catch (error) {
@@ -658,7 +660,8 @@ async function deleteRemoteRuntimeCache(key: string): Promise<void> {
       await invoke("delete_tab_runtime_cache", { key });
       return;
     }
-    await fetch(apiUrl(`/api/tab-runtime-cache?key=${encodeURIComponent(key)}`), { method: "DELETE" });
+    const response = await fetch(apiUrl(`/api/tab-runtime-cache?key=${encodeURIComponent(key)}`), { method: "DELETE" });
+    await response.body?.cancel();
   } catch {
     // Best-effort delete (the entry expires server-side). Deliberately silent: logging
     // here after a vitest run finishes races worker teardown and has failed CI runs

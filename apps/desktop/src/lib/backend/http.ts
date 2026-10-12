@@ -2035,31 +2035,36 @@ export async function aiStream(sessionId: string, request: AiCompletionRequest, 
   const decoder = new TextDecoder();
   let buffer = "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
 
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
 
-    for (const line of lines) {
-      if (line.startsWith("data:")) {
-        const data = line.slice(5).trim();
-        if (data && data !== "[DONE]") {
-          let chunk: AiStreamChunk;
-          try {
-            chunk = JSON.parse(data);
-          } catch {
-            // skip malformed JSON
-            continue;
+      for (const line of lines) {
+        if (line.startsWith("data:")) {
+          const data = line.slice(5).trim();
+          if (data && data !== "[DONE]") {
+            let chunk: AiStreamChunk;
+            try {
+              chunk = JSON.parse(data);
+            } catch {
+              // skip malformed JSON
+              continue;
+            }
+            if (chunk.error) throw new Error(chunk.error);
+            onChunk(chunk);
+            if (chunk.done) return;
           }
-          if (chunk.error) throw new Error(chunk.error);
-          onChunk(chunk);
-          if (chunk.done) return;
         }
       }
     }
+  } finally {
+    try { await reader.cancel(); } catch { /* The stream may already be closed. */ }
+    reader.releaseLock?.();
   }
 }
 
@@ -2160,41 +2165,46 @@ export async function aiAgentStream(
   let buffer = "";
   let result = "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
 
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
 
-    for (const line of lines) {
-      if (line.startsWith("data:")) {
-        const data = line.slice(5).trim();
-        if (data && data !== "[DONE]") {
-          let parsed: unknown;
-          try {
-            parsed = JSON.parse(data);
-          } catch {
-            // skip malformed JSON
-            continue;
-          }
-          if (!isAgentEvent(parsed)) {
-            console.warn("[aiAgentStream] Skipping invalid agent event:", data);
-            continue;
-          }
-          onEvent(parsed);
-          if (parsed.type === "error") {
-            throw new Error(parsed.message);
-          }
-          if (parsed.type === "agent_end") {
-            result = data;
+      for (const line of lines) {
+        if (line.startsWith("data:")) {
+          const data = line.slice(5).trim();
+          if (data && data !== "[DONE]") {
+            let parsed: unknown;
+            try {
+              parsed = JSON.parse(data);
+            } catch {
+              // skip malformed JSON
+              continue;
+            }
+            if (!isAgentEvent(parsed)) {
+              console.warn("[aiAgentStream] Skipping invalid agent event:", data);
+              continue;
+            }
+            onEvent(parsed);
+            if (parsed.type === "error") {
+              throw new Error(parsed.message);
+            }
+            if (parsed.type === "agent_end") {
+              result = data;
+            }
           }
         }
       }
     }
+    return result;
+  } finally {
+    try { await reader.cancel(); } catch { /* The stream may already be closed. */ }
+    reader.releaseLock?.();
   }
-  return result;
 }
 
 export async function saveAiConfig(config: AiConfig): Promise<void> {
@@ -2262,6 +2272,7 @@ export async function saveMcpGlobalPolicy(policy: Omit<McpGlobalPolicy, "configu
     body: JSON.stringify(policy),
   });
   if (!res.ok) throw await backendResponseError(res);
+  await res.body?.cancel();
 }
 
 export async function loadMcpHttpServerSettings(): Promise<import("@/lib/backend/tauri").McpHttpServerSettings> {
@@ -2315,6 +2326,7 @@ export async function saveSqlFileUploadMaxMb(sqlFileUploadMaxMb: number): Promis
     body: JSON.stringify({ sqlFileUploadMaxMb }),
   });
   if (!res.ok) throw await backendResponseError(res);
+  await res.body?.cancel();
 }
 
 export async function saveMaxAgentTurns(maxAgentTurns: number): Promise<void> {
@@ -2324,6 +2336,7 @@ export async function saveMaxAgentTurns(maxAgentTurns: number): Promise<void> {
     body: JSON.stringify({ maxAgentTurns }),
   });
   if (!res.ok) throw await backendResponseError(res);
+  await res.body?.cancel();
 }
 
 export async function loadHistoryRetentionLimit(): Promise<number> {
@@ -2337,6 +2350,7 @@ export async function saveHistoryRetentionLimit(limit: number): Promise<void> {
     body: JSON.stringify({ limit }),
   });
   if (!res.ok) throw await backendResponseError(res);
+  await res.body?.cancel();
 }
 
 export async function loadMcpHistoryRetentionLimit(): Promise<number> {
@@ -2350,6 +2364,7 @@ export async function saveMcpHistoryRetentionLimit(limit: number): Promise<void>
     body: JSON.stringify({ limit }),
   });
   if (!res.ok) throw await backendResponseError(res);
+  await res.body?.cancel();
 }
 
 export async function loadMaxRetries(): Promise<number> {
@@ -2363,6 +2378,7 @@ export async function saveMaxRetries(maxRetries: number): Promise<void> {
     body: JSON.stringify({ maxRetries }),
   });
   if (!res.ok) throw await backendResponseError(res);
+  await res.body?.cancel();
 }
 
 export type { OpenTabsStatePayload, PersistedEditorGroup } from "@/lib/app/openTabsPersistence";
@@ -2905,6 +2921,7 @@ export async function startTransfer(request: TransferRequest, onProgress: (progr
     body: JSON.stringify({ request }),
   });
   if (!res.ok) throw await backendResponseError(res);
+  await res.body?.cancel();
   onStarted?.();
 
   // 2. SSE to listen for progress
@@ -2995,6 +3012,7 @@ export async function importTableFile(request: TableImportRequest, onProgress: (
     body: JSON.stringify({ request }),
   });
   if (!res.ok) throw await backendResponseError(res);
+  await res.body?.cancel();
 
   // 2. SSE to listen for progress
   return new Promise((resolve, reject) => {
@@ -3043,6 +3061,27 @@ async function checkMongoUploadSize(files: File[]) {
 }
 
 function uploadMongoForm(url: string, form: FormData, options?: MongoSourceReadOptions): Promise<MongoRestoreSourcePreview> {
+  if (import.meta.env.VITE_DBX_CODEX_APP) {
+    const request = new Request("https://dbx.invalid", { method: "POST", body: form });
+    const reader = request.body!.getReader();
+    let loaded = 0;
+    const body = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        try {
+          const chunk = await reader.read();
+          if (chunk.done) { controller.close(); reader.releaseLock(); return; }
+          loaded += chunk.value.length;
+          options?.onUploadProgress?.(loaded, 0);
+          controller.enqueue(chunk.value);
+        } catch(error) { controller.error(error); }
+      },
+      cancel(reason) { return reader.cancel(reason); },
+    });
+    return fetch(apiUrl(url), { method: "POST", headers: request.headers, body, signal: options?.signal, ...{ duplex: "half" } }).then(async response => {
+      if (!response.ok) throw await backendResponseError(response);
+      return response.json();
+    });
+  }
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const abort = () => xhr.abort();
@@ -3211,6 +3250,7 @@ export async function importMongodbFile(request: MongoImportRequest, onProgress:
     body: JSON.stringify({ request }),
   });
   if (!res.ok) throw await backendResponseError(res);
+  await res.body?.cancel();
   return new Promise((resolve, reject) => {
     const es = new EventSource(apiUrl(`/api/mongo/import/progress/${request.importId}`));
     es.onmessage = (e) => {
@@ -3253,6 +3293,7 @@ export async function exportMongodbQuery(request: MongoExportRequest, onProgress
     body: JSON.stringify({ request }),
   });
   if (!res.ok) throw await backendResponseError(res);
+  await res.body?.cancel();
   return new Promise((resolve, reject) => {
     const es = new EventSource(apiUrl(`/api/mongo/export/progress/${request.exportId}`));
     es.onmessage = (e) => {
@@ -3302,6 +3343,7 @@ export async function exportDatabaseSql(request: DatabaseExportRequest, onProgre
     body: JSON.stringify({ request }),
   });
   if (!res.ok) throw await backendResponseError(res);
+  await res.body?.cancel();
 
   // 2. SSE to listen for progress
   return new Promise((resolve, reject) => {

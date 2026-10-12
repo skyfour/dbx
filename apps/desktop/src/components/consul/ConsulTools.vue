@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { computed, onMounted, ref, watch } from "vue";
 import { FileSearch, Pencil, Play, Plus, RefreshCcw, Trash2, X } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
@@ -165,7 +166,7 @@ async function explainQuery(query: ConsulPreparedQuery) {
 }
 
 async function deleteQuery(id: string) {
-  if (!canWriteQueries.value || !confirm(t("consul.ui.deletePreparedQuery", { id }))) return;
+  if (!canWriteQueries.value || !(await confirmWorkbench(t("consul.ui.deletePreparedQuery", { id })))) return;
   queryBusy.value = true;
   queryError.value = "";
   try {

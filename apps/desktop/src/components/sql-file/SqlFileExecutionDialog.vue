@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { uuid } from "@/lib/common/utils";
 import { useI18n } from "vue-i18n";
@@ -854,7 +855,7 @@ async function cancelExecution() {
 async function handleOpenChange(nextOpen: boolean) {
   if (!nextOpen && (resolvingTransaction.value || (running.value && manualTransaction.value))) return;
   if (!nextOpen && txnSessionId.value) {
-    if (!window.confirm(t("sqlFile.rollbackBeforeClose"))) return;
+    if (!(await confirmWorkbench(t("sqlFile.rollbackBeforeClose")))) return;
     if (!(await finishTransaction(false))) return;
   }
   open.value = nextOpen;

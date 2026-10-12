@@ -14,7 +14,7 @@ type Intent = {
 
 async function readIntent(id: string): Promise<Intent> {
   const response = await fetch(apiUrl(`/codex/intents/${encodeURIComponent(id)}`), { credentials: "same-origin", cache: "no-store" });
-  if (!response.ok) throw new Error(response.status === 404 ? "Workbench link expired or unavailable" : "Unable to open Codex workbench link");
+  if (!response.ok) { await response.body?.cancel(); throw new Error(response.status === 404 ? "Workbench link expired or unavailable" : "Unable to open Codex workbench link"); }
   return response.json();
 }
 

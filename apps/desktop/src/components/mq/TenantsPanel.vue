@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { formatError } from "@/lib/backend/errorUtils";
 import { computed, ref, onBeforeUnmount, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -147,7 +148,7 @@ async function handleUpdate() {
 
 async function handleDelete(tenant: TenantInfo) {
   if (!(await guardWritable(t("mqTenants.delete")))) return;
-  if (!confirm(t("mqTenants.confirmDelete", { name: tenant.name }))) return;
+  if (!(await confirmWorkbench(t("mqTenants.confirmDelete", { name: tenant.name })))) return;
   loading.value = true;
   error.value = undefined;
   try {

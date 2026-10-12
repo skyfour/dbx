@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { promptWorkbench } from "@/lib/common/browserDialogs";
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from "vue";
 import { Clipboard, Eye, EyeOff, Loader2, Pencil, Plus, RefreshCcw, Trash2 } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
@@ -167,7 +168,7 @@ async function inspectDelete(item: Record<string, unknown>) {
   });
 }
 async function cloneToken(item: Record<string, unknown>) {
-  const description = window.prompt(t("consul.ui.cloneTokenDescription"), String(item.Description || ""));
+  const description = (await promptWorkbench(t("consul.ui.cloneTokenDescription"), String(item.Description || "")));
   if (description === null) return;
   await runOperation(async () => {
     const result = await api.consulAclTokenClone(props.connectionId, itemId(item), description);

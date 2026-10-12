@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { computed, ref, watch } from "vue";
 import { Check, ChevronLeft, ChevronRight, Loader2, Plus, RefreshCw, Search } from "@lucide/vue";
 import { useI18n } from "vue-i18n";
@@ -102,8 +103,8 @@ function updateSelectedPolicy(patch: Partial<McpConnectionPolicy>) {
   emit("update:connectionPolicies", [...policies, next]);
 }
 
-function setScope(scope: DatabaseScope) {
-  if (scope !== "selected" && selectedDatabasePolicies.value.length > 0 && !window.confirm(t("settings.mcpDatabaseScopeClearsPermissionExceptions"))) return;
+async function setScope(scope: DatabaseScope) {
+  if (scope !== "selected" && selectedDatabasePolicies.value.length > 0 && !(await confirmWorkbench(t("settings.mcpDatabaseScopeClearsPermissionExceptions")))) return;
   updateSelectedPolicy({
     databaseScope: scope,
     allowedDatabases: scope === "selected" ? selectedDatabases.value : [],
@@ -137,8 +138,8 @@ function selectConnection(connectionId: string) {
   databasePage.value = 1;
 }
 
-function toggleDatabase(database: string, checked: boolean) {
-  if (!checked && selectedDatabasePolicies.value.some((policy) => policy.databaseName === database) && !window.confirm(t("settings.mcpDatabaseScopeClearsPermissionExceptions"))) return;
+async function toggleDatabase(database: string, checked: boolean) {
+  if (!checked && selectedDatabasePolicies.value.some((policy) => policy.databaseName === database) && !(await confirmWorkbench(t("settings.mcpDatabaseScopeClearsPermissionExceptions")))) return;
   const databases = checked ? [...new Set([...selectedDatabases.value, database])] : selectedDatabases.value.filter((item) => item !== database);
   updateSelectedPolicy({
     databaseScope: "selected",

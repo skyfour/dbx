@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { AlertTriangle, Loader2 } from "@lucide/vue";
 import * as api from "@/lib/backend/api";
@@ -631,7 +632,7 @@ async function confirmPluginDataAccess(pluginName: string, connectionId: string)
     const { ask } = await import("@tauri-apps/plugin-dialog");
     return (await ask(message, { title, kind: "warning" })) === true;
   }
-  return window.confirm(`${title}\n\n${message}`);
+  return (await confirmWorkbench(`${title}\n\n${message}`));
 }
 
 /** Keep a plugin-supplied name from smuggling path separators or traversal into the save dialog. */

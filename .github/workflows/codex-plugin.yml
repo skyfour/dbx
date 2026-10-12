@@ -70,11 +70,12 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm exec vitest run
       - run: pnpm build
+      - run: pnpm build:codex-ui
       - name: Native protocol and Web regression
         run: cargo test --locked --target ${{ matrix.target }} -p dbx-codex -p dbx-mcp -p dbx-web --features dbx-web/codex-plugin
       - name: Build self-contained native programs
         run: cargo build --locked --release --target ${{ matrix.target }} -p dbx-codex -p dbx-web --features dbx-web/codex-plugin
-      - run: node --test scripts/package-codex-plugin.test.mjs
+      - run: node --test scripts/package-codex-plugin.test.mjs scripts/build-codex-ui.test.mjs
       - run: node scripts/package-codex-plugin.mjs --target ${{ matrix.target }} --output target/codex-plugin/${{ matrix.target }}
       - name: Packaged native end-to-end acceptance
         run: node scripts/verify-codex-plugin.mjs --plugin-dir target/codex-plugin/${{ matrix.target }}/plugins/dbx

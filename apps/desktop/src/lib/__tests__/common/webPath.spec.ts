@@ -1,7 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
 import { apiUrl, apiWebSocketUrl, dbxWebBasePath, webPath } from "@/lib/common/webPath";
 
 describe("webPath", () => {
+  afterEach(()=>vi.unstubAllEnvs());
+  it("keeps Codex assets and API paths while using fragment-only auth navigation",()=>{
+    vi.stubEnv("VITE_DBX_CODEX_APP",true);
+    expect(dbxWebBasePath("/mcp-app/dbx","/host/")).toBe("");
+    expect(webPath("/login")).toBe("#/login");
+    expect(webPath("/")).toBe("#/");
+    expect(webPath("/icons/database/mysql.svg")).toBe("/icons/database/mysql.svg");
+    expect(apiUrl("/auth/check")).toBe("/api/auth/check");
+    expect(apiWebSocketUrl("/redis/pubsub/ws")).toBe("ws://dbx.invalid/api/redis/pubsub/ws");
+  });
   it("keeps root deployments on root-relative API paths", () => {
     expect(dbxWebBasePath("/", "/")).toBe("");
     expect(apiUrl("/api/auth/check", "")).toBe("/api/auth/check");

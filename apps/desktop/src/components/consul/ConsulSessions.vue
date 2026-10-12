@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from "vue";
 import { AlertTriangle, ChevronDown, ChevronUp, Clock3, KeyRound, Loader2, Plus, RefreshCcw, RotateCw, Search, ShieldCheck, Trash2 } from "@lucide/vue";
 import ConsulListPagination from "@/components/consul/ConsulListPagination.vue";
@@ -170,7 +171,7 @@ async function createSession() {
     error.value = validation;
     return;
   }
-  if (createForm.value.behavior === "delete" && !window.confirm(t("consul.ui.deleteBehaviorWarning"))) return;
+  if (createForm.value.behavior === "delete" && !(await confirmWorkbench(t("consul.ui.deleteBehaviorWarning")))) return;
   saving.value = true;
   error.value = "";
   try {
@@ -229,14 +230,14 @@ async function destroy(id: string) {
     }
     const keys = impact.heldKeys.map((item) => item.key).join(", ") || t("consul.ui.noHeldKeys");
     if (
-      !window.confirm(
+      !(await confirmWorkbench(
         t("consul.ui.destroySessionImpact", {
           id,
           behavior: impact.session.Behavior,
           count: impact.heldKeys.length,
           keys,
         }),
-      )
+      ))
     )
       return;
     await api.consulDestroySession(props.connectionId, {

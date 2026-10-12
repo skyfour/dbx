@@ -8,9 +8,24 @@ function file(name: string, size = 0) {
   return value;
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe("MongoDB metadata-first transport", () => {
+  it("uses the native Codex fetch path for archive uploads and preserves cancellation and progress",async()=>{
+    vi.stubEnv("VITE_DBX_CODEX_APP",true);
+    const signal=new AbortController().signal,progress=vi.fn();
+    const fetch=vi.fn(async(url,init)=>{
+      if(String(url).endsWith("upload-limit"))return new Response("1000000");
+      expect(init.signal).toBe(signal);
+      expect(init.headers.get("content-type")).toContain("multipart/form-data");
+      expect(await new Response(init.body).text()).toContain("archive bytes");
+      return new Response(JSON.stringify({sourceRef:"native"}));
+    });
+    vi.stubGlobal("fetch",fetch);
+    vi.stubGlobal("XMLHttpRequest",class { constructor(){throw new Error("Native UI must not use XHR");} });
+    const result=await prepareMongodbRestoreSource(new File(["archive bytes"],"dump.archive"),"archive",false,{signal,onUploadProgress:progress});
+    expect(result.sourceRef).toBe("native");expect(progress).toHaveBeenCalled();expect(fetch).toHaveBeenCalledTimes(2);
+  });
   it("previews a multi-gigabyte directory without uploading any BSON bodies", async () => {
     const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ sourceRef: "catalog", databases: ["source"], collections: [] })));
     vi.stubGlobal("fetch", fetch);

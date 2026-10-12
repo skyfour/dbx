@@ -89,13 +89,13 @@ describe("McpResourceScopePicker", () => {
     vi.unstubAllGlobals();
   });
 
-  it("emits allow-all when switching from a custom group and connection selection", () => {
+  it("emits allow-all when switching from a custom group and connection selection", async () => {
     const { mounted, update } = mountPicker({
       allowedGroupIds: ["g1"],
       allowedConnectionIds: ["c2"],
     });
 
-    dispatch(modeButton(mounted.root, "all"), "click");
+    await dispatch(modeButton(mounted.root, "all"), "click");
 
     expect(update).toHaveBeenCalledWith({ allowedGroupIds: [], allowedConnectionIds: null });
   });
@@ -104,7 +104,7 @@ describe("McpResourceScopePicker", () => {
     const customScope = { allowedGroupIds: ["g1"], allowedConnectionIds: ["c2"] };
     const { mounted, update } = mountPicker(customScope);
 
-    dispatch(modeButton(mounted.root, "all"), "click");
+    await dispatch(modeButton(mounted.root, "all"), "click");
     expect(confirmMock).toHaveBeenCalledWith("settings.mcpResourceScopeAllConfirm");
     await mounted.setProps({ allowedGroupIds: [], allowedConnectionIds: null });
     dispatch(modeButton(mounted.root, "custom"), "click");
@@ -112,14 +112,14 @@ describe("McpResourceScopePicker", () => {
     expect(update).toHaveBeenLastCalledWith(customScope);
   });
 
-  it("keeps the custom scope without emitting when the all-connections confirm is cancelled", () => {
+  it("keeps the custom scope without emitting when the all-connections confirm is cancelled", async () => {
     confirmMock.mockReturnValue(false);
     const { mounted, update } = mountPicker({
       allowedGroupIds: ["g1"],
       allowedConnectionIds: ["c2"],
     });
 
-    dispatch(modeButton(mounted.root, "all"), "click");
+    await dispatch(modeButton(mounted.root, "all"), "click");
 
     expect(confirmMock).toHaveBeenCalledWith("settings.mcpResourceScopeAllConfirm");
     expect(modeButton(mounted.root, "all").props["aria-checked"]).toBe(false);
@@ -143,7 +143,7 @@ describe("McpResourceScopePicker", () => {
       allowedConnectionIds: [],
     });
 
-    dispatch(modeButton(mounted.root, "all"), "click");
+    await dispatch(modeButton(mounted.root, "all"), "click");
     expect(confirmMock).not.toHaveBeenCalled();
     await mounted.setProps({ allowedGroupIds: [], allowedConnectionIds: null });
     dispatch(modeButton(mounted.root, "custom"), "click");
@@ -151,26 +151,26 @@ describe("McpResourceScopePicker", () => {
     expect(update).toHaveBeenLastCalledWith({ allowedGroupIds: [], allowedConnectionIds: [] });
   });
 
-  it("does not emit while disabled", () => {
+  it("does not emit while disabled", async () => {
     const { mounted, update } = mountPicker({
       allowedGroupIds: ["g1"],
       allowedConnectionIds: ["c2"],
       disabled: true,
     });
 
-    dispatch(modeButton(mounted.root, "all"), "click");
+    await dispatch(modeButton(mounted.root, "all"), "click");
 
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("does not emit while busy", () => {
+  it("does not emit while busy", async () => {
     const { mounted, update } = mountPicker({
       allowedGroupIds: ["g1"],
       allowedConnectionIds: ["c2"],
       busy: true,
     });
 
-    dispatch(modeButton(mounted.root, "all"), "click");
+    await dispatch(modeButton(mounted.root, "all"), "click");
 
     expect(update).not.toHaveBeenCalled();
   });

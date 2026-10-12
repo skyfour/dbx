@@ -46,8 +46,19 @@ async fn serve() -> Result<(), String> {
     if !data_dir.is_absolute() {
         return Err("DBX_CODEX_DATA_DIR must be an absolute path".into());
     }
+    let html_path = executable
+        .parent()
+        .and_then(|path| path.parent())
+        .ok_or("Cannot locate plugin UI")?
+        .join("assets/workbench.html");
+    let html =
+        std::fs::read_to_string(html_path).map_err(|_| "Packaged DBX UI is missing; reinstall the complete plugin")?;
     let handle = ensure_runtime(&data_dir, &web_binary).await?;
-    let gateway = std::sync::Arc::new(Gateway::new(handle, read_token(&data_dir)?));
+    let gateway = std::sync::Arc::new(
+        Gateway::new(handle, read_token(&data_dir)?)
+            .with_workbench_html(html)
+            .with_export_directory(data_dir.join("exports")),
+    );
     let service = gateway
         .clone()
         .serve(rmcp::transport::stdio())

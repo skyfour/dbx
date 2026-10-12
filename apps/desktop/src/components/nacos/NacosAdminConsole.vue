@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { useUpdateBlocker } from "@/lib/app/updatePreparation";
 import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, shallowRef, useId, watch } from "vue";
 import { Compartment, StateEffect, StateField } from "@codemirror/state";
@@ -1599,7 +1600,7 @@ async function previewBatch(payload: NacosConfigTransferDialogPayload) {
 
 async function applyBatch(payload: NacosConfigTransferDialogPayload) {
   if (batchLoading.value || batchReport.value || !batchPreview.value) return;
-  if (payload.policy === "OVERWRITE" && !window.confirm(t("nacos.overwriteConfirm"))) return;
+  if (payload.policy === "OVERWRITE" && !(await confirmWorkbench(t("nacos.overwriteConfirm")))) return;
   const targetConnectionId = batchMode.value === "import" ? props.connectionId : payload.targetConnectionId;
   const targetNamespace = batchMode.value === "import" ? namespace.value : payload.targetNamespace;
   const operation = batchMode.value === "import" ? t("nacos.batchImport") : t("nacos.copyToNamespace");

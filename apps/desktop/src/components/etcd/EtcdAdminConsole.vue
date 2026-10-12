@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { promptWorkbench } from "@/lib/common/browserDialogs";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { Activity, HardDrive, History, KeyRound, Loader2, Pencil, Play, Plus, Search, Server, Square, Trash2, Wrench } from "@lucide/vue";
@@ -168,7 +169,7 @@ function reset(message = "") {
 }
 async function dangerousApproval(action: string, params: Record<string, unknown>) {
   const preflight = await api.etcdPreflight(props.connectionId, action, params);
-  const entered = window.prompt(t("etcd.admin.confirmationPrompt", { confirmationText: preflight.confirmationText }), "");
+  const entered = (await promptWorkbench(t("etcd.admin.confirmationPrompt", { confirmationText: preflight.confirmationText }), ""));
   if (entered !== preflight.confirmationText) return null;
   return { preflightToken: preflight.token, confirmationText: entered };
 }

@@ -27,7 +27,7 @@ pub fn default_data_dir() -> Result<PathBuf> {
         .ok_or_else(|| "Cannot determine the user's local data directory".into())
 }
 
-fn private_dir(path: &Path) -> Result<()> {
+pub(crate) fn private_dir(path: &Path) -> Result<()> {
     // Refuse symlink components before opening credentials or persistent storage.
     for ancestor in path.ancestors() {
         if let Ok(meta) = std::fs::symlink_metadata(ancestor) {
@@ -76,7 +76,7 @@ fn private_dir(path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn private_file(path: &Path, create: bool) -> Result<File> {
+pub(crate) fn private_file(path: &Path, create: bool) -> Result<File> {
     if let Ok(meta) = std::fs::symlink_metadata(path) {
         if !meta.is_file() || meta.file_type().is_symlink() {
             return Err("Codex runtime files must be regular files, not symlinks".into());

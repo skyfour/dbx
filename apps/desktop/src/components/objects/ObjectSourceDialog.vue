@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { Clipboard, Loader2, PencilLine, RefreshCw } from "@lucide/vue";
@@ -159,7 +160,7 @@ function cancelEditSource() {
 
 async function refreshSource() {
   if (loading.value || saving.value) return;
-  if (editing.value && !window.confirm(t("objects.refreshDiscardConfirm"))) return;
+  if (editing.value && !(await confirmWorkbench(t("objects.refreshDiscardConfirm")))) return;
   await loadSource(editing.value && canEdit.value);
 }
 

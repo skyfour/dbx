@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { ref, reactive, onMounted, onUnmounted, computed, watch, nextTick } from "vue";
 import { useI18n } from "vue-i18n";
 import { Activity, ExternalLink, Cpu, FolderOpen, FolderSync, MemoryStick, Search, Square, Trash2, Download, RotateCcw, Loader2, RefreshCw, Check, FileArchive, FileUp, X } from "@lucide/vue";
@@ -164,7 +165,7 @@ async function applyDriverStoreDir(kind: DriverStoreDirKind, newDir: string | nu
   if (driverStoreDirMigrating.value) return;
 
   const target = driverStoreTargetLabel(kind);
-  const confirmed = window.confirm(t("driverStore.driverStoreDirConfirm", { target }));
+  const confirmed = (await confirmWorkbench(t("driverStore.driverStoreDirConfirm", { target })));
   if (!confirmed) return;
 
   driverStoreDirMigrating.value = kind;

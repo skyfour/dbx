@@ -15,12 +15,16 @@ required-features = ["gateway"]
 
 [dependencies]
 rmcp = { version = "3.5.1", optional = true, features = ["client", "transport-io", "transport-streamable-http-client-reqwest"] }
+base64 = "0.22"
+percent-encoding = "2"
+futures-util = { version = "0.3", features = ["sink"] }
+tokio-tungstenite = "0.29"
 fs2 = "0.4"
 dirs = "6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.13", default-features = false, features = ["json"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream"] }
 uuid = { version = "1", features = ["v4"] }
 url = { version = "2", features = ["serde"] }
 

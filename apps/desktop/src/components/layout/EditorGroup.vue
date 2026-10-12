@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { computed, inject, ref, useAttrs } from "vue";
 import { useI18n } from "vue-i18n";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -123,7 +124,7 @@ async function changeExternalSqlEncoding(encoding: NonNullable<QueryTab["externa
   const tab = activeTab.value;
   if (!tab?.externalSqlPath) return;
   const request = ++encodingRequest;
-  if (queryStore.isTabDirty(tab) && !window.confirm(t("externalSqlFile.unsavedWarning"))) return;
+  if (queryStore.isTabDirty(tab) && !(await confirmWorkbench(t("externalSqlFile.unsavedWarning")))) return;
   const path = tab.externalSqlPath;
   const sql = tab.sql;
   const version = tab.externalSqlFileVersion;

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from "vue";
 import { Clipboard, Eye, EyeOff, Loader2, Plus, RefreshCcw, Trash2 } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
@@ -179,16 +180,16 @@ async function confirmSave() {
   }
 }
 async function removeConfig(item: ConsulConfigEntry) {
-  if (!confirm(t("consul.ui.deleteConfig", { kind: item.kind, name: item.name }))) return;
+  if (!(await confirmWorkbench(t("consul.ui.deleteConfig", { kind: item.kind, name: item.name })))) return;
   await api.consulMeshConfigDelete(props.connectionId, item.kind, item.name, item.modifyIndex);
   await load();
 }
 async function removeIntention(item: ConsulIntention) {
   if (item.ID) {
-    if (!confirm(t("consul.ui.deleteIntention", { id: item.ID }))) return;
+    if (!(await confirmWorkbench(t("consul.ui.deleteIntention", { id: item.ID })))) return;
     await api.consulMeshIntentionDelete(props.connectionId, item.ID);
   } else if (item.SourceName && item.DestinationName) {
-    if (!confirm(t("consul.ui.deleteIntentionExact", { source: item.SourceName, destination: item.DestinationName }))) return;
+    if (!(await confirmWorkbench(t("consul.ui.deleteIntentionExact", { source: item.SourceName, destination: item.DestinationName })))) return;
     await api.consulMeshIntentionDeleteExact(props.connectionId, { source: item.SourceName, destination: item.DestinationName });
   } else return;
   await load();
@@ -267,7 +268,7 @@ async function copyToken() {
   clearToken();
 }
 async function removePeering(name: string) {
-  if (!confirm(t("consul.ui.deletePeering", { name }))) return;
+  if (!(await confirmWorkbench(t("consul.ui.deletePeering", { name })))) return;
   await api.consulMeshPeeringDelete(props.connectionId, name);
   await load();
 }

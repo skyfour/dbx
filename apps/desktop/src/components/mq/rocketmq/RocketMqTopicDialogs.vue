@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { BrokerNode, ResetPosition, SubscriptionInfo, TopicInfo, TopicRef } from "@/types/mq";
@@ -272,7 +273,7 @@ async function confirmSkip() {
   const topic = topicRef.value;
   if (!topic || props.readOnly) return;
   if (!(await confirmMqWrite(t("mqTopics.actionSkip")))) return;
-  if (!confirm(t("mqTopics.confirmSkip", { name: topic.topic }))) return;
+  if (!(await confirmWorkbench(t("mqTopics.confirmSkip", { name: topic.topic })))) return;
   loading.value = true;
   dialogError.value = undefined;
   try {

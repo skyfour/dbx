@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { createCodexIntentHandler } from "@/composables/useCodexWorkbench";
 import { blockingDesktopAiRunsForUpdate } from "@/lib/ai/desktopAiRunRegistry";
 import { setupUpdatePreparation, prepareUpdateWithDraftRecovery, isUpdatePreparationActive } from "@/lib/app/updatePreparation";
@@ -4424,7 +4425,7 @@ function onLoginSuccess() {
 }
 
 async function handleWebLogout() {
-  if (!window.confirm(t("auth.logoutConfirm"))) return;
+  if (!(await confirmWorkbench(t("auth.logoutConfirm")))) return;
   try {
     await logoutWeb();
   } catch (error) {
@@ -4433,7 +4434,9 @@ async function handleWebLogout() {
     authenticated.value = false;
     needsAuth.value = true;
     const target = webPath("/login");
-    if (window.location.pathname === target) {
+    if (import.meta.env.VITE_DBX_CODEX_APP) {
+      history.replaceState(null, "", target);
+    } else if (window.location.pathname === target) {
       window.location.reload();
     } else {
       window.location.href = target;

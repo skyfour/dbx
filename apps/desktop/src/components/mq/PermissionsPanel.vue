@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { formatError } from "@/lib/backend/errorUtils";
 import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -171,7 +172,7 @@ async function revokePermission(role: string) {
     error.value = t("mqPermissions.selectNamespaceOrTopic");
     return;
   }
-  if (!confirm(t("mqPermissions.confirmRevoke", { role }))) return;
+  if (!(await confirmWorkbench(t("mqPermissions.confirmRevoke", { role })))) return;
 
   loading.value = true;
   error.value = undefined;

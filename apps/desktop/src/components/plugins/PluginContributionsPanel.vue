@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { confirmWorkbench } from "@/lib/common/browserDialogs";
 import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref, watch, TransitionGroup } from "vue";
 import { ArrowUp, BadgeCheck, Check, ChevronRight, CircleAlert, Download, ExternalLink, FileUp, FolderTree, Globe, Info, LayoutGrid, Link2, List, Loader2, PackageCheck, Pencil, Pin, PinOff, Plus, RefreshCw, RotateCcw, Search, Settings2, ShieldCheck, Store, Trash2, X } from "@lucide/vue";
 import { Badge } from "@/components/ui/badge";
@@ -654,11 +655,12 @@ async function runBatchUninstall() {
   const targets = batchSelectedInstalled.value;
   if (!targets.length || mutationRunning.value) return;
   const names = targets.map((definition) => definition.plugin.manifest.name).join("、");
-  if (!window.confirm(t("pluginPlatform.batchUninstallConfirm", { count: targets.length, names }))) return;
   batchRunning.value = true;
   loadError.value = "";
   const descriptors: BatchFailureDescriptor[] = targets.map((definition) => ({ pluginId: definition.plugin.manifest.id, kind: "uninstall" }));
   try {
+    if (!(await confirmWorkbench(t("pluginPlatform.batchUninstallConfirm", { count: targets.length, names })))) return;
+
     const outcome = await runBatch(
       targets,
       (definition) => definition.plugin.manifest.name,
@@ -713,9 +715,10 @@ async function toggleRepository(repository: PluginRepository) {
 }
 
 async function removeRepository(repository: PluginRepository) {
-  if (mutationRunning.value || repository.managed || !window.confirm(t("pluginPlatform.removeRepositoryConfirm", { name: repository.name }))) return;
+  if (mutationRunning.value || repository.managed) return;
   operating.value = true;
   try {
+    if (!(await confirmWorkbench(t("pluginPlatform.removeRepositoryConfirm", { name: repository.name })))) return;
     repositories.value = await api.removePluginRepository(repository.id);
     if (marketplaceRepositoryId.value === repository.id) marketplaceRepositoryId.value = "all";
     toast(t("pluginPlatform.repositoryRemoved", { name: repository.name }));
@@ -746,9 +749,10 @@ async function saveTrustedKey() {
 }
 
 async function removeTrustedKey(keyId: string) {
-  if (mutationRunning.value || !window.confirm(t("pluginPlatform.removeRepositoryKeyConfirm", { keyId }))) return;
+  if (mutationRunning.value) return;
   operating.value = true;
   try {
+    if (!(await confirmWorkbench(t("pluginPlatform.removeRepositoryKeyConfirm", { keyId })))) return;
     trustedKeys.value = await api.removePluginTrustedKey(keyId);
     toast(t("pluginPlatform.repositoryKeyRemoved", { keyId }));
   } catch (cause) {
@@ -1020,9 +1024,10 @@ function onTauriPluginDrop(event: Event) {
 }
 
 async function rollbackSelectedPlugin() {
-  if (mutationRunning.value || !selectedPluginId.value || !window.confirm(t("pluginPlatform.rollbackConfirm"))) return;
+  if (mutationRunning.value || !selectedPluginId.value) return;
   operating.value = true;
   try {
+    if (!(await confirmWorkbench(t("pluginPlatform.rollbackConfirm")))) return;
     const result = await api.rollbackPlugin(selectedPluginId.value);
     notifyPluginRuntimeReplaced(result.plugin.manifest.id);
     toast(t("pluginPlatform.rollbackSuccess", { version: result.plugin.manifest.version }));
@@ -1042,9 +1047,10 @@ async function rollbackSelectedPlugin() {
 
 async function uninstallSelectedPlugin() {
   const definition = selectedDefinition.value;
-  if (mutationRunning.value || !definition || !window.confirm(t("pluginPlatform.uninstallConfirm", { name: definition.plugin.manifest.name }))) return;
+  if (mutationRunning.value || !definition) return;
   operating.value = true;
   try {
+    if (!(await confirmWorkbench(t("pluginPlatform.uninstallConfirm", { name: definition.plugin.manifest.name })))) return;
     applyInstalledPlugins(await api.uninstallPlugin(definition.plugin.manifest.id));
     forgetGraphicsEngineGrant(definition.plugin.manifest.id);
     retireBatchFailure(definition.plugin.manifest.id);
@@ -1087,7 +1093,7 @@ watch(
     if (!request || request.id <= lastHandledInstallRequestId) return;
     lastHandledInstallRequestId = request.id;
     installUrl.value = request.url;
-    if (window.confirm(t("pluginPlatform.deepLinkInstallConfirm", { url: request.url }))) {
+    if ((await confirmWorkbench(t("pluginPlatform.deepLinkInstallConfirm", { url: request.url })))) {
       await installPluginFromUrl();
     }
   },

@@ -6,7 +6,7 @@ use rmcp::{model::*, service::RunningService, RoleClient, ServiceExt};
 async fn client(handle: RuntimeHandle) -> (RunningService<RoleClient, ()>, tokio::task::JoinHandle<()>) {
     let (server_io, client_io) = tokio::io::duplex(65536);
     let server = tokio::spawn(async move {
-        let gateway = Arc::new(Gateway::new(handle, "private-fixture-credential-do-not-leak".into()));
+        let gateway = Arc::new(Gateway::new(handle, "private-fixture-credential-do-not-leak".into()).with_workbench_html("<!doctype html><div id=\"root\"></div><script>/* ui/initialize ui/notifications/initialized ui/resource-teardown */</script>".into()));
         gateway.clone().serve(server_io).await.unwrap().waiting().await.unwrap();
         gateway.shutdown().await.unwrap();
     });
@@ -36,11 +36,13 @@ async fn bootstrap_tools_survive_unconfigured_backend() {
     let resource = serde_json::to_value(resource).unwrap();
     let content = &resource["contents"][0];
     assert_eq!(content["mimeType"], "text/html;profile=mcp-app");
-    assert_eq!(content["_meta"]["ui"]["csp"]["frameDomains"], serde_json::json!(["http://127.0.0.1:1"]));
+    assert_eq!(content["_meta"]["ui"]["csp"]["frameDomains"], serde_json::json!([]));
+    assert_eq!(content["_meta"]["ui"]["permissions"]["clipboardWrite"],serde_json::json!({}));
     let html = content["text"].as_str().unwrap();
-    assert!(html.contains("<iframe"));
+    assert!(!html.contains("<iframe"));
+    assert!(html.contains("id=\"root\""));
     assert!(!html.contains("ui/open-link"));
-    assert!(html.contains("http://127.0.0.1:1/"));
+    assert!(!html.contains("http://127.0.0.1:1/"));
     assert!(html.contains("ui/initialize") && html.contains("ui/notifications/initialized"));
     assert!(!html.contains("private-fixture-credential"));
     let opened = client.call_tool(CallToolRequestParams::new("dbx_codex_open")).await.unwrap();
@@ -264,7 +266,7 @@ impl rmcp::ClientHandler for NotificationClient {
 async fn resource_content_and_notifications_reach_the_stdio_client() {
     let (handle, _, backend) = backend().await;
     let (server_io, client_io) = tokio::io::duplex(65536);
-    let gateway = Arc::new(Gateway::new(handle, "private-fixture-credential-do-not-leak".into()));
+    let gateway = Arc::new(Gateway::new(handle, "private-fixture-credential-do-not-leak".into()).with_workbench_html("<!doctype html><div id=\"root\"></div><script>/* ui/initialize ui/notifications/initialized ui/resource-teardown */</script>".into()));
     let server = tokio::spawn(async move {
         gateway.clone().serve(server_io).await.unwrap().waiting().await.unwrap();
         gateway.shutdown().await.unwrap();
